@@ -10,7 +10,7 @@ void spin(uint32_t count)
 bool waitBIT(const volatile uint32_t* reg, uint32_t bit, uint32_t timeout)
 {
     const auto start = getTick();
-    while (getTick() - start < timeout && (*reg & bit) == 0)
+    while (getTick() - start < timeout && !isBitSet(reg, bit))
         asm("nop");
-    return (*reg & bit) != 0;
+    return isBitSet(reg, bit);
 }

@@ -37,13 +37,19 @@ PROG = firmware
 
 .PHONY: all clean check scan size flash
 
-all: $(PROG).bin test_clocks test_clocks.elf
+all: $(PROG).bin test_clocks test_clocks.elf test_bits test_bits.elf
 
-test_clocks: test_clocks.cpp
-	g++ -std=c++23 $^ -o $@
+test_clocks: test_clocks.cpp clocks.h
+	g++ -std=c++23 -ggdb3 $(WARNING_FLAGS) test_clocks.cpp -o $@
 
-test_clocks.elf: test_clocks.cpp
-	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
+test_clocks.elf: test_clocks.cpp clocks.h
+	$(CXX) $(CXXFLAGS) test_clocks.cpp $(LDFLAGS) -o $@
+
+test_bits: test_bits.cpp utils.h
+	g++ -std=c++23 -ggdb3 $(WARNING_FLAGS) test_bits.cpp -o $@
+
+test_bits.elf: test_bits.cpp utils.h
+	$(CXX) $(CXXFLAGS) test_bits.cpp $(LDFLAGS) -o $@
 
 $(PROG).elf: $(subst .S,.o,$(subst .c,.o,$(subst .cpp,.o,$(SOURCES))))
 	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
