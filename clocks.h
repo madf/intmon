@@ -23,6 +23,11 @@ struct HSIBase
     static constexpr auto READY = BIT(1);
     static constexpr uint32_t TIMEOUT = 2; // 2 ms
 
+    static bool isReady()
+    {
+        return isBitSet(&RCC->CR, READY);
+    }
+
     static bool enable(uint32_t timeout)
     {
         setBit(&RCC->CR, ON);
@@ -51,6 +56,11 @@ struct HSEBase
     static constexpr auto ON = BIT(16);
     static constexpr auto READY = BIT(17);
     static constexpr uint32_t TIMEOUT = 100; // 100 ms
+
+    static bool isReady()
+    {
+        return isBitSet(&RCC->CR, READY);
+    }
 
     static bool enable(uint32_t timeout)
     {
@@ -81,6 +91,11 @@ struct LSIBase
     static constexpr auto READY = BIT(1);
     static constexpr uint32_t TIMEOUT = 2; // 2 ms
 
+    static bool isReady()
+    {
+        return isBitSet(&RCC->CSR, READY);
+    }
+
     static bool enable(uint32_t timeout)
     {
         setBit(&RCC->CSR, ON);
@@ -109,6 +124,11 @@ struct LSEBase
     static constexpr auto ON = BIT(0);
     static constexpr auto READY = BIT(1);
     static constexpr uint32_t TIMEOUT = 5000; // 2 ms
+
+    static bool isReady()
+    {
+        return isBitSet(&RCC->BDCR, READY);
+    }
 
     static bool enable(uint32_t timeout)
     {
@@ -227,9 +247,19 @@ struct SysClockBase
 
     static constexpr double freq = Input::freq;
 
-    static void enable()
+    static bool enable(uint32_t timeout)
     {
-        Input::enable();
+        return Input::enable(timeout);
+    }
+
+    static bool enable()
+    {
+        return Input::enable();
+    }
+
+    static bool isEnabled()
+    {
+        return Input::isEnabled();
     }
 };
 
