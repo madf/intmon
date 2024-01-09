@@ -4,3 +4,5 @@
 *.elf
 *.map
 *.bin
+test_bits
+test_clocks
