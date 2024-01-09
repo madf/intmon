@@ -7,7 +7,7 @@
 #include <cstdint>
 
 /*
- * using PLL = Clocks::PLL<HSE<25>, 25, 336, 4, 7>
+ * using PLL = Clocks::PLL<Clocks::HSE<25>, 25, 336, 4, 7>
  * using SysClock = Clocks::SysClock<PLL, 1, 2, 1>
  *
  */
@@ -15,90 +15,124 @@
 namespace Clocks
 {
 
-inline constexpr auto HSI_ON = BIT(0);
-inline constexpr auto HSI_READY = BIT(1);
-inline constexpr uint32_t HSI_TIMEOUT = 2; // 2 ms
-inline constexpr auto HSE_ON = BIT(16);
-inline constexpr auto HSE_READY = BIT(17);
-inline constexpr uint32_t HSE_TIMEOUT = 100; // 100 ms
-inline constexpr auto LSI_ON = BIT(0);
-inline constexpr auto LSI_READY = BIT(1);
-inline constexpr uint32_t LSI_TIMEOUT = 2; // 2 ms
-inline constexpr auto LSE_ON = BIT(0);
-inline constexpr auto LSE_READY = BIT(1);
-inline constexpr uint32_t LSE_TIMEOUT = 5000; // 2 ms
 inline constexpr auto POWER_INTERFACE_CLOCK_ON = BIT(28);
-inline constexpr auto PLL_ON = BIT(24);
-inline constexpr auto PLL_READY = BIT(25);
-inline constexpr uint32_t PLL_TIMEOUT = 2; // 2 ms
 
-template <double F = 16.0>
-struct HSI
+struct HSIBase
 {
-    static constexpr auto freq = F;
+    static constexpr auto ON = BIT(0);
+    static constexpr auto READY = BIT(1);
+    static constexpr uint32_t TIMEOUT = 2; // 2 ms
 
     static bool enable(uint32_t timeout)
     {
-        RCC->CR |= HSI_ON;
-        return waitBIT(&RCC->CR, HSI_READY, timeout);
+        setBit(&RCC->CR, ON);
+        return waitBIT(&RCC->CR, READY, timeout);
     }
 
     static bool enable()
     {
-        return enable(HSI_TIMEOUT);
+        return enable(TIMEOUT);
+    }
+
+    static bool isEnabled()
+    {
+        return isBitSet(&RCC->CR, ON);
+    }
+};
+
+template <double F = 16.0>
+struct HSI : HSIBase
+{
+    static constexpr auto freq = F;
+};
+
+struct HSEBase
+{
+    static constexpr auto ON = BIT(16);
+    static constexpr auto READY = BIT(17);
+    static constexpr uint32_t TIMEOUT = 100; // 100 ms
+
+    static bool enable(uint32_t timeout)
+    {
+        setBit(&RCC->CR, ON);
+        return waitBIT(&RCC->CR, READY, timeout);
+    }
+
+    static bool enable()
+    {
+        return enable(TIMEOUT);
+    }
+
+    static bool isEnabled()
+    {
+        return isBitSet(&RCC->CR, ON);
     }
 };
 
 template <double F>
-struct HSE
+struct HSE : HSEBase
 {
     static constexpr auto freq = F;
+};
+
+struct LSIBase
+{
+    static constexpr auto ON = BIT(0);
+    static constexpr auto READY = BIT(1);
+    static constexpr uint32_t TIMEOUT = 2; // 2 ms
 
     static bool enable(uint32_t timeout)
     {
-        RCC->CR |= HSE_ON;
-        return waitBIT(&RCC->CR, HSE_READY, timeout);
+        setBit(&RCC->CSR, ON);
+        return waitBIT(&RCC->CSR, READY, timeout);
     }
 
     static bool enable()
     {
-        return enable(HSE_TIMEOUT);
+        return enable(TIMEOUT);
+    }
+
+    static bool isEnabled()
+    {
+        return isBitSet(&RCC->CSR, ON);
     }
 };
 
 template <double F = 32.0>
-struct LSI
+struct LSI : LSIBase
 {
     static constexpr auto freq = F;
+};
+
+struct LSEBase
+{
+    static constexpr auto ON = BIT(0);
+    static constexpr auto READY = BIT(1);
+    static constexpr uint32_t TIMEOUT = 5000; // 2 ms
 
     static bool enable(uint32_t timeout)
     {
-        RCC->CSR |= LSI_ON;
-        return waitBIT(&RCC->CSR, LSI_READY, timeout);
+        setBit(&RCC->APB1ENR, POWER_INTERFACE_CLOCK_ON); // Enable power interface clock
+        setBit(&RCC->BDCR, ON);
+        return waitBIT(&RCC->BDCR, READY, timeout);
     }
 
     static bool enable()
     {
-        return enable(LSI_TIMEOUT);
+        return enable(TIMEOUT);
+    }
+
+    static bool isEnabled()
+    {
+        return isBitSet(&RCC->BDCR, ON) &&
+               isBitSet(&RCC->APB1ENR, POWER_INTERFACE_CLOCK_ON);
     }
 };
 
 template <double F>
-struct LSE
+struct LSE : LSEBase
 {
     static constexpr auto freq = F;
-
-    static bool enable(uint32_t timeout)
-    {
-        RCC->APB1ENR |= POWER_INTERFACE_CLOCK_ON; // Enable power interfaec clock
-        RCC->BDCR |= LSE_ON;
-        return waitBIT(&RCC->BDCR, LSE_READY, timeout);
-    }
-
-    static bool enable()
-    {
-        return enable(LSE_TIMEOUT);
-    }
 };
 
 template <typename T>
@@ -128,8 +162,31 @@ struct isPLLInput<HSE<F>> : std::true_type {};
 template <typename T>
 inline constexpr bool isPLLInput_v = isPLLInput<T>::value;
 
+struct PLLBase
+{
+    static constexpr auto ON = BIT(24);
+    static constexpr auto READY = BIT(25);
+    static constexpr uint32_t TIMEOUT = 2; // 2 ms
+
+    static bool enable(uint32_t timeout)
+    {
+        setBit(&RCC->CR, ON);
+        return waitBIT(&RCC->CR, READY, timeout);
+    }
+
+    static bool enable()
+    {
+        return enable(TIMEOUT);
+    }
+
+    static bool isEnabled()
+    {
+        return isBitSet(&RCC->CR, ON);
+    }
+};
+
 template <typename I, uint8_t M, uint16_t N, uint8_t P, uint8_t Q>
-struct PLL
+struct PLL : PLLBase
 {
     static_assert(isPLLInput_v<I>, "Not a PLL input clock");
     using Input = I;
@@ -145,17 +202,6 @@ struct PLL
     static constexpr double freq = Output;
 
     //static_assert(static_cast<unsigned>(USB48MHz) == 48, "USB clock must be 48 MHz");
-
-    static bool enable(uint32_t timeout)
-    {
-        RCC->CR |= PLL_ON;
-        return waitBIT(&RCC->CR, PLL_READY, timeout);
-    }
-
-    static bool enable()
-    {
-        return enable(PLL_TIMEOUT);
-    }
 };
 
 template <typename T>
@@ -173,22 +219,30 @@ struct isSysClockInput<PLL<I, M, N, P, Q>> : std::true_type {};
 template <typename T>
 inline constexpr bool isSysClockInput_v = isSysClockInput<T>::value;
 
-template <typename I, uint8_t HPRE, uint8_t PPRE1, uint8_t PPRE2>
-struct SysClock
+template <typename I>
+struct SysClockBase
 {
     static_assert(isSysClockInput_v<I>, "Not a SysClock input clock");
     using Input = I;
 
     static constexpr double freq = Input::freq;
 
-    static constexpr auto AHBFreq = freq / HPRE;
-    static constexpr auto APB1Freq = AHBFreq / PPRE1;
-    static constexpr auto APB2Freq = AHBFreq / PPRE2;
-
     static void enable()
     {
         Input::enable();
     }
+};
+
+template <typename I, uint8_t HPRE, uint8_t PPRE1, uint8_t PPRE2>
+struct SysClock : SysClockBase<I>
+{
+    using Base = SysClockBase<I>;
+    using Base::Input;
+    using Base::freq;
+
+    static constexpr auto AHBFreq = freq / HPRE;
+    static constexpr auto APB1Freq = AHBFreq / PPRE1;
+    static constexpr auto APB2Freq = AHBFreq / PPRE2;
 };
 
 }
