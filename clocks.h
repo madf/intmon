@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rcc.h"
+#include "pwr.h"
 #include "utils.h"
 
 #include <type_traits>
@@ -17,7 +18,7 @@ namespace Clocks
 
 inline constexpr auto POWER_INTERFACE_CLOCK_ON = BIT(28);
 
-template <volatile uint32_t (RCCType::* Reg), uint32_t OnBit, uint32_t ReadyBit, uint32_t Timeout>
+template <volatile uint32_t (RCC::Type::* Reg), uint32_t OnBit, uint32_t ReadyBit, uint32_t Timeout>
 struct Base
 {
     static constexpr auto ON = OnBit;
@@ -27,13 +28,13 @@ struct Base
 
     static bool isReady()
     {
-        return isBitSet(&(RCC->*Reg), ReadyBit);
+        return isBitSet(&(RCC::Regs->*Reg), ReadyBit);
     }
 
     static bool enable(uint32_t timeout)
     {
-        setBit(&(RCC->*Reg), OnBit);
-        return waitBitOn(&(RCC->*Reg), ReadyBit, timeout);
+        setBit(&(RCC::Regs->*Reg), OnBit);
+        return waitBitOn(&(RCC::Regs->*Reg), ReadyBit, timeout);
     }
 
     static bool enable()
@@ -43,8 +44,8 @@ struct Base
 
     static bool disable(uint32_t timeout)
     {
-        clearBit(&(RCC->*Reg), OnBit);
-        return waitBitOff(&(RCC->*Reg), ReadyBit, timeout);
+        clearBit(&(RCC::Regs->*Reg), OnBit);
+        return waitBitOff(&(RCC::Regs->*Reg), ReadyBit, timeout);
     }
 
     static bool disable()
@@ -54,11 +55,11 @@ struct Base
 
     static bool isEnabled()
     {
-        return isBitSet(&(RCC->*Reg), OnBit);
+        return isBitSet(&(RCC::Regs->*Reg), OnBit);
     }
 };
 
-using HSIBase = Base<&RCCType::CR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 2 /*ms, timeout*/>;
+using HSIBase = Base<&RCC::Type::CR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 2 /*ms, timeout*/>;
 
 template <double F = 16.0>
 struct HSI : HSIBase
@@ -66,7 +67,7 @@ struct HSI : HSIBase
     static constexpr auto freq = F;
 };
 
-using HSEBase = Base<&RCCType::CR, BIT(16) /*on/off*/, BIT(17) /*ready*/, 100 /*ms, timeout*/>;
+using HSEBase = Base<&RCC::Type::CR, BIT(16) /*on/off*/, BIT(17) /*ready*/, 100 /*ms, timeout*/>;
 
 template <double F>
 struct HSE : HSEBase
@@ -74,7 +75,7 @@ struct HSE : HSEBase
     static constexpr auto freq = F;
 };
 
-using LSIBase = Base<&RCCType::CSR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 2 /*ms, timeout*/>;
+using LSIBase = Base<&RCC::Type::CSR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 2 /*ms, timeout*/>;
 
 template <double F = 32.0>
 struct LSI : LSIBase
@@ -82,18 +83,27 @@ struct LSI : LSIBase
     static constexpr auto freq = F;
 };
 
-struct LSEBase : Base<&RCCType::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 5000 /*ms, timeout*/>
+struct LSEBase : Base<&RCC::Type::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 5000 /*ms, timeout*/>
 {
     static bool enable(uint32_t timeout)
     {
-        setBit(&RCC->APB1ENR, POWER_INTERFACE_CLOCK_ON); // Enable power interface clock
+        struct PICDisabler
+        {
+            PICDisabler() { disable = !isBitSet(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); }
+            ~PICDisabler() { if (disable) clearBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); }
+            bool disable;
+        } atExit;
+
+        setBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); // Enable power interface clock
+        setBit(&PWR::Regs->CR, BIT(8)); // Disable write protection for backup domain
+        if (!waitBitOn(&PWR::Regs->CR, BIT(8), 2))
+            return false;
         return BaseType::enable(timeout);
     }
 
-    static bool isEnabled()
+    static bool enable()
     {
-        return BaseType::isEnabled() &&
-               isBitSet(&RCC->APB1ENR, POWER_INTERFACE_CLOCK_ON);
+        return enable(TIMEOUT);
     }
 };
 
@@ -130,12 +140,25 @@ struct isPLLInput<HSE<F>> : std::true_type {};
 template <typename T>
 inline constexpr bool isPLLInput_v = isPLLInput<T>::value;
 
-using PLLBase = Base<&RCCType::CR, BIT(24) /*on/off*/, BIT(25) /*ready*/, 2 /*ms, timeout*/>;
+template <typename T>
+struct isHSE : std::false_type {};
+
+template <double F>
+struct isHSE<HSE<F>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool isHSE_v = isHSE<T>::value;
+
+using PLLBase = Base<&RCC::Type::CR, BIT(24) /*on/off*/, BIT(25) /*ready*/, 2 /*ms, timeout*/>;
 
 template <typename I, uint8_t M, uint16_t N, uint8_t P, uint8_t Q>
 struct PLL : PLLBase
 {
     static_assert(isPLLInput_v<I>, "Not a PLL input clock");
+    static_assert(Q > 1 && Q < 16, "Q must be in [2, 15] range");
+    static_assert(P / 2 > 0 && P / 2 < 5, "P must be exactly one of [2, 4, 6, 8]");
+    static_assert(N > 1 && N < 433, "N must be in [2, 433] range");
+    static_assert(M > 1 && M < 64, "M must be in [2, 63] range");
     using Input = I;
     static constexpr auto m = M;
     static constexpr auto n = N;
@@ -149,6 +172,33 @@ struct PLL : PLLBase
     static constexpr double freq = Output;
 
     //static_assert(static_cast<unsigned>(USB48MHz) == 48, "USB clock must be 48 MHz");
+
+    static bool enable(uint32_t timeout)
+    {
+        BaseType::disable(timeout);
+        clearBit(&RCC::Regs->PLLCFGR, 0x0F << 24);
+        setBit(&RCC::Regs->PLLCFGR, q << 24);
+
+        clearBit(&RCC::Regs->PLLCFGR, BIT(22));
+        if constexpr (isHSE_v<Input>)
+            setBit(&RCC::Regs->PLLCFGR, BIT(22));
+
+        clearBit(&RCC::Regs->PLLCFGR, 0x03 << 16);
+        setBit(&RCC::Regs->PLLCFGR, (p / 2 - 1) << 16);
+
+        clearBit(&RCC::Regs->PLLCFGR, 0x01FF << 6);
+        setBit(&RCC::Regs->PLLCFGR, n << 6);
+
+        clearBit(&RCC::Regs->PLLCFGR, 0x3F);
+        setBit(&RCC::Regs->PLLCFGR, m);
+        BaseType::enable(timeout);
+        return false;
+    }
+
+    static bool enable()
+    {
+        return enable(TIMEOUT);
+    }
 };
 
 template <typename T>
@@ -181,6 +231,8 @@ struct SysClockBase
 
     static bool enable(uint32_t timeout)
     {
+        setBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); // Enable power interface clock
+        setBit(&PWR::Regs->CR, BIT(15)); // Voltage scaling mode 2
         return Input::enable(timeout);
     }
 

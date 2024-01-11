@@ -2,7 +2,10 @@
 
 #include <cstdint>
 
-struct RCCType
+namespace RCC
+{
+
+struct Type
 {
     volatile uint32_t CR;           // Clock control
     volatile uint32_t PLLCFGR;      // PLL configuration
@@ -38,4 +41,6 @@ struct RCCType
     volatile uint32_t DCKCFGR;      // Dedicated clocks configuration
 };
 
-inline RCCType* const RCC = reinterpret_cast<RCCType*>(0x40023800);
+inline Type* const Regs = reinterpret_cast<Type*>(0x40023800);
+
+}

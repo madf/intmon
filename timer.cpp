@@ -4,10 +4,10 @@
 
 void Timer::reset()
 {
-    m_start = getTick();
+    m_start = SysTick::getTick();
 }
 
 bool Timer::expired()
 {
-    return getTick() > m_start + m_duration.count();
+    return SysTick::getTick() > m_start + m_duration.count();
 }
