@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <utility> // std::to_underlying
+#include <type_traits>
 
 namespace GPIO
 {
@@ -126,5 +127,14 @@ struct Pin
         regs->BSRR = (1U << number) << (val ? 0x00 : 0x10);
     }
 };
+
+template <typename T>
+struct isPin : std::false_type {};
+
+template <char Bank, uint16_t N>
+struct isPin<Pin<Bank, N>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool isPin_v = isPin<T>::value;
 
 }

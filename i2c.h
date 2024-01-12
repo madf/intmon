@@ -66,14 +66,14 @@ struct Port
     using SDA = PinsDef::SDA;
     using SCL = PinsDef::SCL;
 
-    static void enable()
+    static void enableGPIO()
     {
         SDA::enable();
         SCL::enable();
         setBit(&RCC::Regs->APB1ENR, BIT(num + 20)); // Enable clock
     }
 
-    static void configure()
+    static void configureGPIO()
     {
         SDA::setMode(GPIO::Mode::AF);
         SDA::setAF(PinsDef::SDA_AF);
@@ -105,10 +105,11 @@ struct Port
 
     static void init()
     {
-        configure();
-        enable();
+        enableGPIO();
+        configureGPIO();
         auto* regs = getRegs(num);
-        clearBit(&regs->CR1, BIT(0));
+        clearBit(&regs->CR1, BIT(0)); // Disable peripheral
+        reset();
         setFreq();
     }
 };
