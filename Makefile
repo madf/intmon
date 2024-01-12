@@ -1,5 +1,5 @@
 DEVICE = stm32f401cdu6
-OPTIMIZE = -Os
+OPTIMIZE = -Os -ggdb3
 
 HARDWARE_FLAGS = -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
 
