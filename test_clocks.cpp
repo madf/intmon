@@ -1,8 +1,11 @@
 #include "clocks.h"
 
+using HPRE = Clocks::HPRE;
+using PPRE = Clocks::PPRE;
+
 void testHSI()
 {
-    using SysClock = Clocks::SysClock<Clocks::HSI<>, 1, 2, 1>;
+    using SysClock = Clocks::SysClock<Clocks::HSI<>, HPRE::DIV1, PPRE::DIV2, PPRE::DIV1>;
 
     static_assert(static_cast<unsigned>(SysClock::freq) == 16);
     static_assert(static_cast<unsigned>(SysClock::AHBFreq) == 16);
@@ -12,7 +15,7 @@ void testHSI()
 
 void testHSE()
 {
-    using SysClock = Clocks::SysClock<Clocks::HSE<25.0>, 1, 2, 1>;
+    using SysClock = Clocks::SysClock<Clocks::HSE<25.0>, HPRE::DIV1, PPRE::DIV2, PPRE::DIV1>;
 
     static_assert(static_cast<unsigned>(SysClock::freq) == 25);
     static_assert(static_cast<unsigned>(SysClock::AHBFreq) == 25);
@@ -23,7 +26,7 @@ void testHSE()
 void testPLLHSI()
 {
     using PLL = Clocks::PLL<Clocks::HSI<>, 16, 144, 4, 5>;
-    using SysClock = Clocks::SysClock<PLL, 1, 2, 1>;
+    using SysClock = Clocks::SysClock<PLL, HPRE::DIV1, PPRE::DIV2, PPRE::DIV1>;
 
     static_assert(static_cast<unsigned>(PLL::freq) == 36);
     static_assert(static_cast<unsigned>(PLL::VCOFreq) == 1);
@@ -37,7 +40,7 @@ void testPLLHSI()
 void testPLLHSE()
 {
     using PLL = Clocks::PLL<Clocks::HSE<25.0>, 25, 336, 4, 7>;
-    using SysClock = Clocks::SysClock<PLL, 1, 2, 1>;
+    using SysClock = Clocks::SysClock<PLL, HPRE::DIV1, PPRE::DIV2, PPRE::DIV1>;
 
     static_assert(static_cast<unsigned>(PLL::freq) == 84);
     static_assert(static_cast<unsigned>(PLL::VCOFreq) == 1);

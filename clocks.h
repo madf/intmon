@@ -4,8 +4,9 @@
 #include "pwr.h"
 #include "utils.h"
 
-#include <type_traits>
 #include <cstdint>
+#include <utility> // std::to_underlying
+#include <type_traits>
 
 /*
  * using PLL = Clocks::PLL<Clocks::HSE<25>, 25, 336, 4, 7>
@@ -67,6 +68,15 @@ struct HSI : HSIBase
     static constexpr auto freq = F;
 };
 
+template <typename T>
+struct isHSI : std::false_type {};
+
+template <double F>
+struct isHSI<HSI<F>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool isHSI_v = isHSI<T>::value;
+
 using HSEBase = Base<&RCC::Type::CR, BIT(16) /*on/off*/, BIT(17) /*ready*/, 100 /*ms, timeout*/>;
 
 template <double F>
@@ -74,6 +84,15 @@ struct HSE : HSEBase
 {
     static constexpr auto freq = F;
 };
+
+template <typename T>
+struct isHSE : std::false_type {};
+
+template <double F>
+struct isHSE<HSE<F>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool isHSE_v = isHSE<T>::value;
 
 using LSIBase = Base<&RCC::Type::CSR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 2 /*ms, timeout*/>;
 
@@ -140,15 +159,6 @@ struct isPLLInput<HSE<F>> : std::true_type {};
 template <typename T>
 inline constexpr bool isPLLInput_v = isPLLInput<T>::value;
 
-template <typename T>
-struct isHSE : std::false_type {};
-
-template <double F>
-struct isHSE<HSE<F>> : std::true_type {};
-
-template <typename T>
-inline constexpr bool isHSE_v = isHSE<T>::value;
-
 using PLLBase = Base<&RCC::Type::CR, BIT(24) /*on/off*/, BIT(25) /*ready*/, 2 /*ms, timeout*/>;
 
 template <typename I, uint8_t M, uint16_t N, uint8_t P, uint8_t Q>
@@ -175,6 +185,9 @@ struct PLL : PLLBase
 
     static bool enable(uint32_t timeout)
     {
+        if (!Input::enable())
+            return false;
+
         BaseType::disable(timeout);
         clearBit(&RCC::Regs->PLLCFGR, 0x0F << 24);
         setBit(&RCC::Regs->PLLCFGR, q << 24);
@@ -191,8 +204,8 @@ struct PLL : PLLBase
 
         clearBit(&RCC::Regs->PLLCFGR, 0x3F);
         setBit(&RCC::Regs->PLLCFGR, m);
-        BaseType::enable(timeout);
-        return false;
+
+        return BaseType::enable(timeout);
     }
 
     static bool enable()
@@ -200,6 +213,15 @@ struct PLL : PLLBase
         return enable(TIMEOUT);
     }
 };
+
+template <typename T>
+struct isPLL : std::false_type {};
+
+template <typename I, uint8_t M, uint16_t N, uint8_t P, uint8_t Q>
+struct isPLL<PLL<I, M, N, P, Q>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool isPLL_v = isPLL<T>::value;
 
 template <typename T>
 struct isSysClockInput : std::false_type {};
@@ -219,8 +241,9 @@ inline constexpr bool isSysClockInput_v = isSysClockInput<T>::value;
 template <typename I>
 struct SysClockBase
 {
-    static_assert(isSysClockInput_v<I>, "Not a SysClock input clock");
     using Input = I;
+
+    static_assert(isSysClockInput_v<Input>, "SysClock input must be either HSI, HSE or PLL");
 
     static constexpr double freq = Input::freq;
 
@@ -231,9 +254,11 @@ struct SysClockBase
 
     static bool enable(uint32_t timeout)
     {
+        if (!Input::enable(timeout))
+            return false;
+
         setBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); // Enable power interface clock
         setBit(&PWR::Regs->CR, BIT(15)); // Voltage scaling mode 2
-        return Input::enable(timeout);
     }
 
     static bool enable()
@@ -257,16 +282,109 @@ struct SysClockBase
     }
 };
 
-template <typename I, uint8_t HPRE, uint8_t PPRE1, uint8_t PPRE2>
+enum class HPRE : uint16_t {
+    DIV1   = 1,
+    DIV2   = 2,
+    DIV4   = 4,
+    DIV8   = 8,
+    DIV16  = 16,
+    DIV64  = 64,
+    DIV128 = 128,
+    DIV256 = 256,
+    DIV512 = 512
+};
+
+inline consteval uint8_t HPREBits(HPRE d)
+{
+    switch (d)
+    {
+        case HPRE::DIV1:   return 0x00; // Correct, high bit is zero
+        case HPRE::DIV2:   return 0x08; // Correct, high bit is always 1 for non-1 divizors
+        case HPRE::DIV4:   return 0x09;
+        case HPRE::DIV8:   return 0x0A;
+        case HPRE::DIV16:  return 0x0B;
+        case HPRE::DIV64:  return 0x0C;
+        case HPRE::DIV128: return 0x0D;
+        case HPRE::DIV256: return 0x0E;
+        case HPRE::DIV512: return 0x0F;
+    };
+    return 0x00; // Just in case
+}
+
+enum class PPRE : uint8_t {
+    DIV1  = 1,
+    DIV2  = 2,
+    DIV4  = 4,
+    DIV8  = 8,
+    DIV16 = 16
+};
+
+inline consteval uint8_t PPREBits(PPRE d)
+{
+    switch (d)
+    {
+        case PPRE::DIV1:  return 0x00; // Correct, high bit is zero
+        case PPRE::DIV2:  return 0x04; // Correct, high bit is always 1 for non-1 divizors
+        case PPRE::DIV4:  return 0x05;
+        case PPRE::DIV8:  return 0x06;
+        case PPRE::DIV16: return 0x07;
+    };
+    return 0x00; // Just in case
+}
+
+template <typename I, HPRE AHBDiv, PPRE APB1Div, PPRE APB2Div>
 struct SysClock : SysClockBase<I>
 {
     using Base = SysClockBase<I>;
-    using Base::Input;
+    using Input = Base::Input;
     using Base::freq;
 
-    static constexpr auto AHBFreq = freq / HPRE;
-    static constexpr auto APB1Freq = AHBFreq / PPRE1;
-    static constexpr auto APB2Freq = AHBFreq / PPRE2;
+    static constexpr auto AHBFreq = freq / std::to_underlying(AHBDiv);
+    static constexpr auto APB1Freq = AHBFreq / std::to_underlying(APB1Div);
+    static constexpr auto APB2Freq = AHBFreq / std::to_underlying(APB2Div);
+
+    static bool enable(uint32_t timeout)
+    {
+        if (!Input::enable())
+            return false;
+
+        // Set APBx prescalers to max value to not exceed frequencies accidentally during configuration
+        setBit(&RCC::Regs->CFGR, 0x07 << 10); // Set APB1 prescaler to 16
+        setBit(&RCC::Regs->CFGR, 0x07 << 13); // Set APB2 prescaler to 16
+
+        // Set AHB prescaler
+        clearBit(&RCC::Regs->CFGR, 0x0F << 4);
+        setBit(&RCC::Regs->CFGR, HPREBits(AHBDiv) << 4);
+
+        // Set clock source
+        uint8_t inputClockCode = 0x00; // HSI is default, 00
+        if constexpr (isHSE_v<Input>)
+            inputClockCode = 0x01; // HSE is 01
+        else if constexpr (isPLL_v<Input>)
+            inputClockCode = 0x02; // PLL is 10
+        // 11 is not applicable
+        clearBit(&RCC::Regs->CFGR, 0x03);
+        setBit(&RCC::Regs->CFGR, inputClockCode);
+
+        // Verify clock source
+        if (!waitBitOn(&RCC::Regs->CFGR, inputClockCode << 2, timeout))
+            return false;
+
+        // Set APB1 prescaler
+        clearBit(&RCC::Regs->CFGR, 0x03 << 10);
+        setBit(&RCC::Regs->CFGR, PPREBits(APB1Div) << 10);
+
+        // Set APB2 prescaler
+        clearBit(&RCC::Regs->CFGR, 0x03 << 13);
+        setBit(&RCC::Regs->CFGR, PPREBits(APB2Div) << 10);
+
+        return true;
+    }
+
+    static bool enable()
+    {
+        return enable(5000); // 5 ms timeout by default
+    }
 };
 
 }
