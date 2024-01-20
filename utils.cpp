@@ -1,5 +1,4 @@
 #include "utils.h"
-#include "systick.h"
 
 void spin(uint32_t count)
 {
@@ -7,18 +6,30 @@ void spin(uint32_t count)
         asm("nop");
 }
 
-bool waitBitOn(const volatile uint32_t* reg, uint32_t bit, uint32_t timeout)
+bool waitBitOn(const volatile uint32_t* reg, uint32_t bit)
 {
-    const auto start = SysTick::getTick();
-    while (SysTick::getTick() - start < timeout && !isBitSet(reg, bit))
+    while (!isBitSet(reg, bit))
         asm("nop");
     return isBitSet(reg, bit);
 }
 
-bool waitBitOff(const volatile uint32_t* reg, uint32_t bit, uint32_t timeout)
+bool waitBitOn(const volatile uint32_t* reg, uint32_t bit, const Timer& timer)
 {
-    const auto start = SysTick::getTick();
-    while (SysTick::getTick() - start < timeout && isBitSet(reg, bit))
+    while (!timer.expired() && !isBitSet(reg, bit))
+        asm("nop");
+    return isBitSet(reg, bit);
+}
+
+bool waitBitOff(const volatile uint32_t* reg, uint32_t bit)
+{
+    while (isBitSet(reg, bit))
+        asm("nop");
+    return !isBitSet(reg, bit);
+}
+
+bool waitBitOff(const volatile uint32_t* reg, uint32_t bit, const Timer& timer)
+{
+    while (!timer.expired() && isBitSet(reg, bit))
         asm("nop");
     return !isBitSet(reg, bit);
 }

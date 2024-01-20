@@ -4,9 +4,10 @@
 #include "pwr.h"
 #include "utils.h"
 
-#include <cstdint>
+#include <chrono>
 #include <utility> // std::to_underlying
 #include <type_traits>
+#include <cstdint>
 
 /*
  * using PLL = Clocks::PLL<Clocks::HSE<25>, 25, 336, 4, 7>
@@ -19,39 +20,30 @@ namespace Clocks
 
 inline constexpr auto POWER_INTERFACE_CLOCK_ON = BIT(28);
 
-template <volatile uint32_t (RCC::Type::* Reg), uint32_t OnBit, uint32_t ReadyBit, uint32_t Timeout>
+template <volatile uint32_t (RCC::Type::* Reg), uint32_t OnBit, uint32_t ReadyBit>
 struct Base
 {
     static constexpr auto ON = OnBit;
     static constexpr auto READY = ReadyBit;
-    static constexpr auto TIMEOUT = Timeout;
-    using BaseType = Base<Reg, OnBit, ReadyBit, Timeout>;
+    using BaseType = Base<Reg, OnBit, ReadyBit>;
 
     static bool isReady()
     {
         return isBitSet(&(RCC::Regs->*Reg), ReadyBit);
     }
 
-    static bool enable(uint32_t timeout)
+    template <class Rep, class Period>
+    static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
         setBit(&(RCC::Regs->*Reg), OnBit);
         return waitBitOn(&(RCC::Regs->*Reg), ReadyBit, timeout);
     }
 
-    static bool enable()
-    {
-        return enable(Timeout);
-    }
-
-    static bool disable(uint32_t timeout)
+    template <class Rep, class Period>
+    static bool disable(std::chrono::duration<Rep, Period> timeout)
     {
         clearBit(&(RCC::Regs->*Reg), OnBit);
         return waitBitOff(&(RCC::Regs->*Reg), ReadyBit, timeout);
-    }
-
-    static bool disable()
-    {
-        return disable(Timeout);
     }
 
     static bool isEnabled()
@@ -60,12 +52,23 @@ struct Base
     }
 };
 
-using HSIBase = Base<&RCC::Type::CR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 2 /*ms, timeout*/>;
+using HSIBase = Base<&RCC::Type::CR, BIT(0) /*on/off*/, BIT(1) /*ready*/>;
 
 template <double F = 16.0>
 struct HSI : HSIBase
 {
     static constexpr auto freq = F;
+    static constexpr auto timeout = std::chrono::milliseconds(2);
+
+    static bool enable()
+    {
+        return HSIBase::enable(timeout);
+    }
+
+    static bool disable()
+    {
+        return HSIBase::disable(timeout);
+    }
 };
 
 template <typename T>
@@ -77,12 +80,23 @@ struct isHSI<HSI<F>> : std::true_type {};
 template <typename T>
 inline constexpr bool isHSI_v = isHSI<T>::value;
 
-using HSEBase = Base<&RCC::Type::CR, BIT(16) /*on/off*/, BIT(17) /*ready*/, 100 /*ms, timeout*/>;
+using HSEBase = Base<&RCC::Type::CR, BIT(16) /*on/off*/, BIT(17) /*ready*/>;
 
 template <double F>
 struct HSE : HSEBase
 {
     static constexpr auto freq = F;
+    static constexpr auto timeout = std::chrono::milliseconds(100);
+
+    static bool enable()
+    {
+        return HSEBase::enable(timeout);
+    }
+
+    static bool disable()
+    {
+        return HSEBase::disable(timeout);
+    }
 };
 
 template <typename T>
@@ -94,17 +108,29 @@ struct isHSE<HSE<F>> : std::true_type {};
 template <typename T>
 inline constexpr bool isHSE_v = isHSE<T>::value;
 
-using LSIBase = Base<&RCC::Type::CSR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 2 /*ms, timeout*/>;
+using LSIBase = Base<&RCC::Type::CSR, BIT(0) /*on/off*/, BIT(1) /*ready*/>;
 
 template <double F = 32.0>
 struct LSI : LSIBase
 {
     static constexpr auto freq = F;
+    static constexpr auto timeout = std::chrono::milliseconds(2);
+
+    static bool enable()
+    {
+        return LSIBase::enable(timeout);
+    }
+
+    static bool disable()
+    {
+        return LSIBase::disable(timeout);
+    }
 };
 
-struct LSEBase : Base<&RCC::Type::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 5000 /*ms, timeout*/>
+struct LSEBase : Base<&RCC::Type::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/>
 {
-    static bool enable(uint32_t timeout)
+    template <class Rep, class Period>
+    static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
         struct PICDisabler
         {
@@ -115,14 +141,9 @@ struct LSEBase : Base<&RCC::Type::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/, 500
 
         setBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); // Enable power interface clock
         setBit(&PWR::Regs->CR, BIT(8)); // Disable write protection for backup domain
-        if (!waitBitOn(&PWR::Regs->CR, BIT(8), 2))
+        if (!waitBitOn(&PWR::Regs->CR, BIT(8), std::chrono::milliseconds(2)))
             return false;
         return BaseType::enable(timeout);
-    }
-
-    static bool enable()
-    {
-        return enable(TIMEOUT);
     }
 };
 
@@ -130,6 +151,17 @@ template <double F>
 struct LSE : LSEBase
 {
     static constexpr auto freq = F;
+    static constexpr auto timeout = std::chrono::milliseconds(5000);
+
+    static bool enable()
+    {
+        return LSEBase::enable(timeout);
+    }
+
+    static bool disable()
+    {
+        return LSEBase::disable(timeout);
+    }
 };
 
 template <typename T>
@@ -159,7 +191,7 @@ struct isPLLInput<HSE<F>> : std::true_type {};
 template <typename T>
 inline constexpr bool isPLLInput_v = isPLLInput<T>::value;
 
-using PLLBase = Base<&RCC::Type::CR, BIT(24) /*on/off*/, BIT(25) /*ready*/, 2 /*ms, timeout*/>;
+using PLLBase = Base<&RCC::Type::CR, BIT(24) /*on/off*/, BIT(25) /*ready*/>;
 
 template <typename I, uint8_t M, uint16_t N, uint8_t P, uint8_t Q>
 struct PLL : PLLBase
@@ -180,10 +212,12 @@ struct PLL : PLLBase
     static constexpr auto Output = VCOFreq * N / P;
 
     static constexpr double freq = Output;
+    static constexpr auto timeout = std::chrono::milliseconds(2);
 
     //static_assert(static_cast<unsigned>(USB48MHz) == 48, "USB clock must be 48 MHz");
 
-    static bool enable(uint32_t timeout)
+    template <class Rep, class Period>
+    static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
         if (!Input::enable())
             return false;
@@ -210,7 +244,7 @@ struct PLL : PLLBase
 
     static bool enable()
     {
-        return enable(TIMEOUT);
+        return enable(timeout);
     }
 };
 
@@ -252,7 +286,8 @@ struct SysClockBase
         return Input::isReady();
     }
 
-    static bool enable(uint32_t timeout)
+    template <class Rep, class Period>
+    static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
         if (!Input::enable(timeout))
             return false;
@@ -266,7 +301,8 @@ struct SysClockBase
         return Input::enable();
     }
 
-    static bool disable(uint32_t timeout)
+    template <class Rep, class Period>
+    static bool disable(std::chrono::duration<Rep, Period> timeout)
     {
         return Input::disable(timeout);
     }
@@ -343,7 +379,8 @@ struct SysClock : SysClockBase<I>
     static constexpr auto APB1Freq = AHBFreq / std::to_underlying(APB1Div);
     static constexpr auto APB2Freq = AHBFreq / std::to_underlying(APB2Div);
 
-    static bool enable(uint32_t timeout)
+    template <class Rep, class Period>
+    static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
         if (!Input::enable())
             return false;
@@ -383,7 +420,7 @@ struct SysClock : SysClockBase<I>
 
     static bool enable()
     {
-        return enable(5000); // 5 ms timeout by default
+        return enable(std::chrono::milliseconds(5000)); // 5 s timeout by default
     }
 };
 

@@ -16,7 +16,7 @@ class Timer
         }
 
         void reset();
-        bool expired();
+        bool expired() const;
 
     private:
         uint32_t m_start;
