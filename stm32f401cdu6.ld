@@ -36,6 +36,15 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
+  .ARM :
+  {
+    . = ALIGN(4);
+    __exidx_start = .;
+    *(.ARM.exidx*)
+    __exidx_end = .;
+    . = ALIGN(4);
+  } >RAM
+
   _sidata = .;
   .data : AT(_sidata)
   {
