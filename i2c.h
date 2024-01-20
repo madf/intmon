@@ -6,6 +6,9 @@
 namespace I2C
 {
 
+enum class ReadWrite { READ, WRITE };
+enum class AckNack { ACK, NACK };
+
 struct Regs
 {
     volatile uint32_t CR1;   // Control register 1
@@ -58,60 +61,120 @@ struct Pins<3>
     constexpr static uint8_t SCL_AF = 4;
 };
 
-template <size_t Num, double PFreq>
-struct Port
+template <size_t Num, double PFreq, uint32_t Speed>
+class Port
 {
-    static constexpr auto num = Num;
-    using PinsDef = Pins<Num>;
-    using SDA = PinsDef::SDA;
-    using SCL = PinsDef::SCL;
+    public:
+        static constexpr auto num = Num;
+        static constexpr auto speed = Speed;
+        static constexpr auto regs = getRegs(num);
 
-    static void enableGPIO()
-    {
-        SDA::enable();
-        SCL::enable();
-        setBit(&RCC::Regs->APB1ENR, BIT(num + 20)); // Enable clock
-    }
+        using PinsDef = Pins<Num>;
+        using SDA = PinsDef::SDA;
+        using SCL = PinsDef::SCL;
 
-    static void configureGPIO()
-    {
-        SDA::setMode(GPIO::Mode::AF);
-        SDA::setAF(PinsDef::SDA_AF);
-        SDA::setOutputType(GPIO::OutputType::OPEN_DRAIN);
-        SDA::setPull(GPIO::Pull::UP);
-        SDA::setSpeed(GPIO::Speed::VERY_HIGH);
+        static void init()
+        {
+            // GPIO
+            enableGPIO();
+            configureGPIO();
 
-        SCL::setMode(GPIO::Mode::AF);
-        SCL::setAF(PinsDef::SCL_AF);
-        SCL::setOutputType(GPIO::OutputType::OPEN_DRAIN);
-        SCL::setPull(GPIO::Pull::UP);
-        SCL::setSpeed(GPIO::Speed::VERY_HIGH);
-    }
+            // I2C
+            clearBit(&regs->CR1, BIT(0)); // Disable peripheral
+            reset();
+            setFreq();
+            setTRise();
+            setCCR();
+            setConfig();
+            setOwnAddress();
+            setBit(&regs->CR1, BIT(0)); // Enable peripheral
+        }
 
-    static void reset()
-    {
-        auto* regs = getRegs(num);
-        setBit(&regs->CR1, BIT(15));
-        clearBit(&regs->CR1, BIT(15));
-    }
+        static bool start();
+        static bool stop();
 
-    static void setFreq()
-    {
-        const auto freq = static_cast<uint8_t>(PFreq);
-        auto* regs = getRegs(num);
-        regs->CR2 &= ~0x0000003F;
-        regs->CR2 |= freq & 0x0000003F;
-    }
+        static bool writeAddress(uint8_t address, ReadWrite rw);
 
-    static void init()
-    {
-        enableGPIO();
-        configureGPIO();
-        auto* regs = getRegs(num);
-        clearBit(&regs->CR1, BIT(0)); // Disable peripheral
-        reset();
-        setFreq();
-    }
+        static bool writeByte(uint8_t value);
+        static std::pair<bool, uint8_t> readByte(AckNack ack);
+
+    private:
+        static void enableGPIO()
+        {
+            SDA::enable();
+            SCL::enable();
+            setBit(&RCC::Regs->APB1ENR, BIT(num + 20)); // Enable clock
+        }
+
+        static void configureGPIO()
+        {
+            SDA::setMode(GPIO::Mode::AF);
+            SDA::setAF(PinsDef::SDA_AF);
+            SDA::setOutputType(GPIO::OutputType::OPEN_DRAIN);
+            SDA::setPull(GPIO::Pull::UP);
+            SDA::setSpeed(GPIO::Speed::VERY_HIGH);
+
+            SCL::setMode(GPIO::Mode::AF);
+            SCL::setAF(PinsDef::SCL_AF);
+            SCL::setOutputType(GPIO::OutputType::OPEN_DRAIN);
+            SCL::setPull(GPIO::Pull::UP);
+            SCL::setSpeed(GPIO::Speed::VERY_HIGH);
+        }
+
+        static void reset()
+        {
+            setBit(&regs->CR1, BIT(15));
+            clearBit(&regs->CR1, BIT(15));
+        }
+
+        static void setFreq()
+        {
+            const auto val = static_cast<uint8_t>(PFreq);
+            clearBit(&regs->CR2, 0x0000003F);
+            setBit(&regs->CR2, val & 0x0000003F);
+        }
+
+        static void setTRise()
+        {
+            // Master/Sm
+            const auto val = static_cast<uint8_t>(PFreq) + 1;
+            clearBit(&regs->TRISE, 0x0000003F);
+            setBit(&regs->TRISE, val & 0x0000003F);
+        }
+
+        static void setCCR()
+        {
+            // Master/Sm
+            const auto val = static_cast<uint16_t>(PFreq * 1000 / (speed * 2));
+            clearBit(&regs->CCR, 0x00000FFF);
+            setBit(&regs->CCR, val & 0x00000FFF);
+
+            // Set Sm, reset Duty
+            clearBit(&regs->CCR, 0x0000C000);
+        }
+
+        static void setConfig()
+        {
+            // Disable NoStretch and GenericCall
+            clearBit(&regs->CR1, 0x0000C000);
+        }
+
+        static void setOwnAddress()
+        {
+            clearBit(&regs->OAR1, 0x00009000); // Set 7-bit addressing mode
+            clearBit(&regs->OAR1, 0x00003FFF); // ADDR8-9, ADDR and ADDR0 are zero
+
+            clearBit(&regs->OAR2, 0x000000FF); // No Dual mode, zero OAR2
+        }
 };
+
+template <typename T>
+struct isPort : std::false_type {};
+
+template <size_t Num, double PFreq, uint32_t Speed>
+struct isPort<Port<Num, PFreq, Speed>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool isPort_v = isPort<T>::value;
 
 }
