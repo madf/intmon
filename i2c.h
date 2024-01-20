@@ -92,13 +92,56 @@ class Port
             setBit(&regs->CR1, BIT(0)); // Enable peripheral
         }
 
-        static bool start();
-        static bool stop();
+        static bool start()
+        {
+            auto regs = getRegs(num);
+            setBit(&regs->CR1, BIT(8)); // START
+            return waitBitOn(&regs->SR1, BIT(0)); // Wait START
+        }
 
-        static bool writeAddress(uint8_t address, ReadWrite rw);
+        static void stop()
+        {
+            auto regs = getRegs(num);
+            setBit(&regs->CR1, BIT(9)); // STOP
+            // STOP detection is only necessary in SLAVE mode
+        }
 
-        static bool writeByte(uint8_t value);
-        static std::pair<bool, uint8_t> readByte(AckNack ack);
+        static bool writeAddress(uint8_t address, ReadWrite rw)
+        {
+            auto regs = getRegs(num);
+            waitBitOff(&regs->SR2, BIT(1)); // Wait while BUSY
+            if (rw == ReadWrite::READ)
+                regs->DR = (address << 1) + 1;
+            else
+                regs->DR = address << 1;
+            if (!waitBitOn(&regs->SR1, BIT(1))) // Wait ADDR
+                return false;
+            // Clear ADDR by reading SR1 and SR2
+            volatile uint32_t temp = 0;
+            temp = regs->SR1;
+            temp = regs->SR2;
+            (void) temp;
+            return true;
+        }
+
+        static bool writeByte(uint8_t value)
+        {
+            auto regs = getRegs(num);
+            if (!waitBitOff(&regs->SR1, BIT(7))) // Wait TxE (maybe still transferring)
+                return false;
+            regs->DR = value;
+            return waitBitOff(&regs->SR1, BIT(7)); // Wait TxE
+        }
+        static std::pair<bool, uint8_t> readByte(AckNack ack)
+        {
+            auto regs = getRegs(num);
+            if (ack = AckNack::ACK)
+                setBit(&regs->CR1, BIT(10));
+            else
+                clearBit(&regs->CR1, BIT(10));
+            const auto success = waitBitOn(&regs->SR1, BIT(6)); // Wait RxNE
+            return {success, regs->DR};
+        }
 
     private:
         static void enableGPIO()
