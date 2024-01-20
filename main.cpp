@@ -2,6 +2,7 @@
 #include "mco.h"
 #include "led.h"
 #include "i2c.h"
+#include "display.h"
 #include "systick.h"
 #include "timer.h"
 #include "clocks.h"
@@ -21,7 +22,7 @@ using HSE = Clocks::HSE<25.0>;
 using LSE = Clocks::LSE<32.768>;
 using PLL = Clocks::PLL<HSE, 25, 336, 4, 7>;
 using SysClock = Clocks::SysClock<PLL, Clocks::HPRE::DIV2, Clocks::PPRE::DIV2, Clocks::PPRE::DIV1>;
-using I2C1 = I2C::Port<1, SysClock::APB1Freq>;
+using I2C1 = I2C::Port<1, SysClock::APB1Freq, 100000>;
 
 int main()
 {
@@ -37,7 +38,7 @@ int main()
 
     MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
 
-    I2C1::init();
+    Display<I2C1> display(0x3C);
 
     Timer timer(std::chrono::seconds(1));
     for (;;) {

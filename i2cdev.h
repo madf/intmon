@@ -1,5 +1,10 @@
 #pragma once
 
+#include "i2c.h"
+
+#include <tuple>
+#include <cstdint>
+
 namespace I2C
 {
 
@@ -14,7 +19,7 @@ class Device
         bool readRegs(uint8_t regNum, void* buf, size_t size)
         {
             // Send preamble
-            if (!preamble())
+            if (!preamble(regNum))
                 return false;
 
             // Request data
@@ -25,7 +30,7 @@ class Device
 
             // Read data
             size_t i = 0;
-            for (i < size - 1; ++i)
+            for (;i < size - 1; ++i)
                 if (!readByte(buf, i, AckNack::ACK))
                     return false;
             // Last byte with NACK
@@ -39,14 +44,14 @@ class Device
         bool writeRegs(uint8_t regNum, const void* data, size_t size)
         {
             // Send preamble
-            if (!preamble())
+            if (!preamble(regNum))
                 return false;
 
             // Send data
             for (size_t i = 0; i < size; ++i)
             {
                 const auto byte = static_cast<const uint8_t*>(data)[i];
-                if (!Port::writeByte(regNum))
+                if (!Port::writeByte(byte))
                     return false;
             }
 
@@ -60,7 +65,7 @@ class Device
     private:
         uint8_t m_address;
 
-        bool preamble()
+        bool preamble(uint8_t regNum)
         {
             if (!Port::start())
                 return false;

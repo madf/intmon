@@ -13,7 +13,7 @@ CFLAGS        ?= $(COMMON_FLAGS)
 
 CXXFLAGS      ?= $(COMMON_FLAGS) -std=c++23 -fno-exceptions
 
-LDFLAGS       ?= -T$(DEVICE).ld -nostartfiles -nostdlib --specs nano.specs -lc -lgcc -Wl,--gc-sections -Wl,-Map=$@.map
+LDFLAGS       ?= -T$(DEVICE).ld -nostartfiles -nostdlib -specs=nano.specs -specs=nosys.specs -fno-exceptions -lstdc++ -lsupc++ -lc -lgcc -Wl,--gc-sections -Wl,-Map=$@.map
 
 ASFLAGS       ?= -x assembler-with-cpp -Wall -fmessage-length=0 $(HARDWARE_FLAGS) $(OPTIMIZE)
 
@@ -27,7 +27,7 @@ OBJDUMP = $(HOST)-objdump
 STRIP = $(HOST)-strip
 SIZE = $(HOST)-size
 
-SOURCES = vector_table.S startup.S main.cpp timer.cpp systick.cpp utils.cpp
+SOURCES = vector_table.S startup.S sbrk.c syscalls.c main.cpp fonts.cpp timer.cpp systick.cpp utils.cpp
 
 SANITIZED_SOURCES = $(patsubst %.S,,$(SOURCES))
 

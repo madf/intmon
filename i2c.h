@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <cstdint>
 #include <cstddef> // size_t
 
@@ -67,7 +68,6 @@ class Port
     public:
         static constexpr auto num = Num;
         static constexpr auto speed = Speed;
-        static constexpr auto regs = getRegs(num);
 
         using PinsDef = Pins<Num>;
         using SDA = PinsDef::SDA;
@@ -78,6 +78,8 @@ class Port
             // GPIO
             enableGPIO();
             configureGPIO();
+
+            auto regs = getRegs(num);
 
             // I2C
             clearBit(&regs->CR1, BIT(0)); // Disable peripheral
@@ -123,6 +125,7 @@ class Port
 
         static void reset()
         {
+            auto regs = getRegs(num);
             setBit(&regs->CR1, BIT(15));
             clearBit(&regs->CR1, BIT(15));
         }
@@ -130,6 +133,7 @@ class Port
         static void setFreq()
         {
             const auto val = static_cast<uint8_t>(PFreq);
+            auto regs = getRegs(num);
             clearBit(&regs->CR2, 0x0000003F);
             setBit(&regs->CR2, val & 0x0000003F);
         }
@@ -138,6 +142,7 @@ class Port
         {
             // Master/Sm
             const auto val = static_cast<uint8_t>(PFreq) + 1;
+            auto regs = getRegs(num);
             clearBit(&regs->TRISE, 0x0000003F);
             setBit(&regs->TRISE, val & 0x0000003F);
         }
@@ -146,6 +151,7 @@ class Port
         {
             // Master/Sm
             const auto val = static_cast<uint16_t>(PFreq * 1000 / (speed * 2));
+            auto regs = getRegs(num);
             clearBit(&regs->CCR, 0x00000FFF);
             setBit(&regs->CCR, val & 0x00000FFF);
 
@@ -155,12 +161,14 @@ class Port
 
         static void setConfig()
         {
+            auto regs = getRegs(num);
             // Disable NoStretch and GenericCall
             clearBit(&regs->CR1, 0x0000C000);
         }
 
         static void setOwnAddress()
         {
+            auto regs = getRegs(num);
             clearBit(&regs->OAR1, 0x00009000); // Set 7-bit addressing mode
             clearBit(&regs->OAR1, 0x00003FFF); // ADDR8-9, ADDR and ADDR0 are zero
 
