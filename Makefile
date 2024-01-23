@@ -53,6 +53,7 @@ test_bits.elf: test_bits.cpp utils.h
 
 $(PROG).elf: $(subst .S,.o,$(subst .c,.o,$(subst .cpp,.o,$(SOURCES))))
 	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
+	#$(STRIP) -s $@
 
 $(PROG).bin: $(PROG).elf
 	$(OBJCOPY) -O binary $< $@

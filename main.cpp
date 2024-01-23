@@ -41,9 +41,11 @@ int main()
     Display<I2C1> display(0x3C);
 
     Timer timer(std::chrono::seconds(1));
+    size_t i = 0;
     for (;;) {
         if (timer.expired())
         {
+            display.printAt(0, 0, Font::font16x26(), std::to_string(i++));
             led.flip();
             //LED2::set(on2);
             timer.reset();
