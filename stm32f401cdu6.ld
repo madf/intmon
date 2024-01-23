@@ -36,14 +36,14 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
-  .ARM :
+  .ARM (NOLOAD) :
   {
     . = ALIGN(4);
     __exidx_start = .;
     *(.ARM.exidx*)
     __exidx_end = .;
     . = ALIGN(4);
-  } >RAM
+  } >FLASH
 
   _sidata = .;
   .data : AT(_sidata)
