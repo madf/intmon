@@ -27,7 +27,7 @@ struct Regs
 inline
 constexpr Regs* getRegs(uint8_t num)
 {
-    return reinterpret_cast<Regs*>(0x40005400 + 0x400 * num);
+    return reinterpret_cast<Regs*>(0x40005400 + 0x400 * (num - 1));
 }
 
 template <size_t Num>
