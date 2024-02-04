@@ -95,6 +95,7 @@ class Port
         static bool start()
         {
             auto regs = getRegs(num);
+            waitBitOff(&regs->SR2, BIT(1)); // Wait while BUSY
             setBit(&regs->CR1, BIT(8)); // START
             return waitBitOn(&regs->SR1, BIT(0)); // Wait START
         }
@@ -109,7 +110,6 @@ class Port
         static bool writeAddress(uint8_t address, ReadWrite rw)
         {
             auto regs = getRegs(num);
-            waitBitOff(&regs->SR2, BIT(1)); // Wait while BUSY
             if (rw == ReadWrite::READ)
                 regs->DR = (address << 1) + 1;
             else
@@ -127,10 +127,10 @@ class Port
         static bool writeByte(uint8_t value)
         {
             auto regs = getRegs(num);
-            if (!waitBitOff(&regs->SR1, BIT(7))) // Wait TxE (maybe still transferring)
+            if (!waitBitOn(&regs->SR1, BIT(7))) // Wait TxE (maybe still transferring)
                 return false;
             regs->DR = value;
-            return waitBitOff(&regs->SR1, BIT(7)); // Wait TxE
+            return waitBitOn(&regs->SR1, BIT(7)); // Wait TxE
         }
         static std::pair<bool, uint8_t> readByte(AckNack ack)
         {
@@ -139,7 +139,7 @@ class Port
                 setBit(&regs->CR1, BIT(10));
             else
                 clearBit(&regs->CR1, BIT(10));
-            const auto success = waitBitOn(&regs->SR1, BIT(6)); // Wait RxNE
+            const auto success = waitBitOff(&regs->SR1, BIT(6)); // Wait RxNE
             return {success, regs->DR};
         }
 
@@ -193,7 +193,7 @@ class Port
         static void setCCR()
         {
             // Master/Sm
-            const auto val = static_cast<uint16_t>(PFreq * 1000 / (speed * 2));
+            const auto val = static_cast<uint16_t>(PFreq * 1000000 / (speed * 2));
             auto regs = getRegs(num);
             clearBit(&regs->CCR, 0x00000FFF);
             setBit(&regs->CCR, val & 0x00000FFF);
