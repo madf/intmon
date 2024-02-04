@@ -22,7 +22,7 @@ using HSE = Clocks::HSE<25.0>;
 using LSE = Clocks::LSE<32.768>;
 using PLL = Clocks::PLL<HSE, 25, 336, 4, 7>;
 using SysClock = Clocks::SysClock<PLL, Clocks::HPRE::DIV2, Clocks::PPRE::DIV2, Clocks::PPRE::DIV1>;
-using I2C1 = I2C::Port<1, SysClock::APB1Freq, 100000>;
+using I2C1 = I2C::Port<1>;
 
 int main()
 {
@@ -38,7 +38,8 @@ int main()
 
     MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
 
-    Display<I2C1> display(0x3C);
+    Display display(I2C1(SysClock::APB1Freq, 100000), 0x3C);
+    display.init();
 
     Timer timer(std::chrono::seconds(1));
     size_t i = 0;

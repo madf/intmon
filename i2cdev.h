@@ -8,13 +8,17 @@
 namespace I2C
 {
 
-template <typename Port>
 class Device
 {
-    static_assert(isPort_v<Port>, "Port must be an I2C port");
 
     public:
-        Device(uint8_t address) : m_address(address) { Port::init(); }
+        template <typename Port>
+        Device(Port&& port, uint8_t address)
+            : m_port(std::move(port)),
+              m_address(address)
+        {
+            static_assert(isPort_v<Port>, "Port must be an I2C port");
+        }
 
         bool readRegs(uint8_t regNum, void* buf, size_t size)
         {
@@ -23,9 +27,9 @@ class Device
                 return false;
 
             // Request data
-            if (!Port::start())
+            if (!m_port.start())
                 return false;
-            if (!Port::writeAddress(m_address, ReadWrite::READ))
+            if (!m_port.writeAddress(m_address, ReadWrite::READ))
                 return false;
 
             // Read data
@@ -37,7 +41,7 @@ class Device
             if (!readByte(buf, i, AckNack::NACK))
                 return false;
 
-            Port::stop();
+            m_port.stop();
             return true;
         }
 
@@ -51,11 +55,11 @@ class Device
             for (size_t i = 0; i < size; ++i)
             {
                 const auto byte = static_cast<const uint8_t*>(data)[i];
-                if (!Port::writeByte(byte))
+                if (!m_port.writeByte(byte))
                     return false;
             }
 
-            Port::stop();
+            m_port.stop();
             return true;
         }
 
@@ -63,23 +67,24 @@ class Device
         bool writeReg(uint8_t regNum, uint8_t value) { return writeRegs(regNum, &value, 1); }
 
     private:
+        I2C::PortBase m_port;
         uint8_t m_address;
 
         bool preamble(uint8_t regNum)
         {
-            if (!Port::start())
+            if (!m_port.start())
                 return false;
-            if (!Port::writeAddress(m_address, ReadWrite::WRITE))
+            if (!m_port.writeAddress(m_address, ReadWrite::WRITE))
                 return false;
-            if (!Port::writeByte(regNum))
+            if (!m_port.writeByte(regNum))
                 return false;
             return true;
         }
 
         bool readByte(void* buf, size_t i, AckNack ack)
         {
-            const auto* bytePtr = static_cast<uint8_t*>(buf) + i;
-            const auto res = Port::readByte(ack);
+            auto* bytePtr = static_cast<uint8_t*>(buf) + i;
+            const auto res = m_port.readByte(ack);
             if (!std::get<0>(res))
                 return false;
             *bytePtr = std::get<1>(res);

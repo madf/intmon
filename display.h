@@ -8,7 +8,6 @@
 #include <array>
 #include <cstdint>
 
-template <typename P>
 class Display
 {
     public:
@@ -17,38 +16,43 @@ class Display
             Black,
             White
         };
-        explicit Display(uint8_t address) : m_dev(address)
+
+        template <typename P>
+        Display(P&& port, uint8_t address)
+            : m_dev(std::move(port), address)
         {
-            sendCommand(0xAE); // Turn off
-
-            sendCommand({0xA8, 0x1F}); // Multiplex ratio (HEIGHT - 1 = 32 - 1 = 0x20 - 1 = 0x1F)
-            sendCommand({0x20, 0x00}); // Memory mode
-            sendCommand({0x21, 0x00, 0x7F}); // Width, 0-127
-            sendCommand({0x22, 0x00, 0x03}); // Height, pages 0-4
-
-            sendCommand(0x40); // Start line
-            sendCommand({0xD3, 0x00}); // Offset
-
-            sendCommand(0xA0); // Remap?
-            sendCommand(0xC0); // Scan inc?
-            sendCommand({0xDA, 0x02}); // Pins config?
-            sendCommand({0x81, 0x8F}); // Contrast
-
-            sendCommand(0xA4); // Resume to RAM
-            sendCommand(0xA6); // Normal display, 0xA7 - inverted
-
-            sendCommand({0xD5, 0x80}); // Display refresh freq
-            sendCommand({0xD9, 0xF1}); // ?
-            sendCommand({0xDB, 0x20}); // Voltage level?
-
-            //sendCommand(0x2E); // Stop scroll
-
-            sendCommand({0x8D, 0x14}); // Chargepump?
-
-            sendCommand(0xAF); // Turn on
         }
 
-        bool ready() noexcept { return m_dev.ready(); }
+        bool init()
+        {
+            return sendCommand(0xAE) // Turn off
+
+                && sendCommand({0xA8, 0x1F}) // Multiplex ratio (HEIGHT - 1 = 32 - 1 = 0x20 - 1 = 0x1F)
+                && sendCommand({0x20, 0x00}) // Memory mode
+                && sendCommand({0x21, 0x00, 0x7F}) // Width, 0-127
+                && sendCommand({0x22, 0x00, 0x03}) // Height, pages 0-4
+
+                && sendCommand(0x40) // Start line
+                && sendCommand({0xD3, 0x00}) // Offset
+
+                && sendCommand(0xA0) // Remap?
+                && sendCommand(0xC0) // Scan inc?
+                && sendCommand({0xDA, 0x02}) // Pins config?
+                && sendCommand({0x81, 0x8F}) // Contrast
+
+                && sendCommand(0xA4) // Resume to RAM
+                && sendCommand(0xA6) // Normal display, 0xA7 - inverted
+
+                && sendCommand({0xD5, 0x80}) // Display refresh freq
+                && sendCommand({0xD9, 0xF1}) // ?
+                && sendCommand({0xDB, 0x20}) // Voltage level?
+
+                //&& sendCommand(0x2E) // Stop scroll
+
+                && sendCommand({0x8D, 0x14}) // Chargepump?
+
+                && sendCommand(0xAF); // Turn on
+        }
 
         using Page = std::array<uint8_t, 128>;
         using Pages = std::array<Page, 32 / 8>;
@@ -141,7 +145,7 @@ class Display
         }
 
     private:
-        I2C::Device<P> m_dev;
+        I2C::Device m_dev;
         Pages m_pages;
 
         bool sendCommand(const std::vector<uint8_t>& cmds) noexcept
