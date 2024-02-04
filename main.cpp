@@ -46,6 +46,7 @@ int main()
         if (timer.expired())
         {
             display.printAt(0, 0, Font::font16x26(), std::to_string(i++));
+            display.update();
             led.flip();
             //LED2::set(on2);
             timer.reset();
