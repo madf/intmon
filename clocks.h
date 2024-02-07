@@ -18,8 +18,6 @@
 namespace Clocks
 {
 
-inline constexpr auto POWER_INTERFACE_CLOCK_ON = BIT(28);
-
 template <volatile uint32_t (RCC::Type::* Reg), uint32_t OnBit, uint32_t ReadyBit>
 struct Base
 {
@@ -132,16 +130,9 @@ struct LSEBase : Base<&RCC::Type::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/>
     template <class Rep, class Period>
     static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
-        struct PICDisabler
-        {
-            PICDisabler() { disable = !isBitSet(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); }
-            ~PICDisabler() { if (disable) clearBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); }
-            bool disable;
-        } atExit;
+        auto atExit = PWR::Interface::scopedEnabler();
 
-        setBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); // Enable power interface clock
-        setBit(&PWR::Regs->CR, BIT(8)); // Disable write protection for backup domain
-        if (!waitBitOn(&PWR::Regs->CR, BIT(8), std::chrono::milliseconds(2)))
+        if (!PWR::Interface::disableBackupDomainWriteProtection())
             return false;
         return BaseType::enable(timeout);
     }
@@ -292,8 +283,8 @@ struct SysClockBase
         if (!Input::enable(timeout))
             return false;
 
-        setBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON); // Enable power interface clock
-        setBit(&PWR::Regs->CR, BIT(15)); // Voltage scaling mode 2
+        auto atExit = PWR::Interface::scopedEnabler();
+        PWR::Interface::setVoltageScalingMode(2);
     }
 
     static bool enable()

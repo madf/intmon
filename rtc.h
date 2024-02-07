@@ -32,4 +32,14 @@ struct Type
 
 inline Type* const Regs = reinterpret_cast<Type*>(0x40002800);
 
+class Device
+{
+    public:
+        static void init();
+
+    private:
+        static void setClockSource();
+        static void enable();
+};
+
 }
