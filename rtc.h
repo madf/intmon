@@ -35,11 +35,70 @@ inline Type* const Regs = reinterpret_cast<Type*>(0x40002800);
 class Device
 {
     public:
-        static void init();
+        enum class ClockSource : uint8_t {
+            NONE = 0x00,
+            LSE = 0x01,
+            LSI = 0x02,
+            HSE = 0x03
+        };
+
+        enum class Format {
+            Normal,
+            AmPm
+        };
+
+        enum class Output : uint8_t {
+            Disable = 0x00,
+            AlarmA = 0x01,
+            AlarmB = 0x02,
+            WakeUp = 0x03
+        };
+
+        enum class OutputType {
+            OpenDrain,
+            PushPull
+        };
+
+        enum class Polarity {
+            High,
+            Low
+        };
+
+        struct Config
+        {
+            ClockSource clockSource;
+            uint8_t asyncPreDiv;
+            uint16_t syncPreDiv;
+            Format format;
+            Output output;
+            OutputType outputType;
+            Polarity polarity;
+
+            Config()
+                : clockSource(ClockSource::LSE),
+                  asyncPreDiv(0x7F),
+                  syncPreDiv(0xFF),
+                  format(Format::Normal),
+                  output(Output::Disable),
+                  outputType(OutputType::OpenDrain),
+                  polarity(Polarity::High)
+            {}
+        };
+
+        static bool init(const Config& config);
 
     private:
-        static void setClockSource();
         static void enable();
+        static void enterInit();
+        static void exitInit();
+        static void wpEnable();
+        static void wpDisable();
+
+        static void setClockSource(ClockSource cs);
+        static void setFormat(Format f);
+        static void setOutput(Output o);
+        static void setPolarity(Polarity p);
+        static void setOutputType(OutputType t);
 };
 
 }
