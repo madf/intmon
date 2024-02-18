@@ -58,7 +58,11 @@ class BME280
             SETTING_SAMPLING_FAILURE
         };
 
-        BME280(I2C_HandleTypeDef& handle, uint8_t address) noexcept;
+        template <typename P>
+        BME280(P& port, uint8_t address)
+            : m_dev(port, address)
+        {
+        }
 
         Status init(Mode mode,
                     Sampling st,
@@ -67,8 +71,6 @@ class BME280
                     Filter filter,
                     Standby dur) noexcept;
         Status init() noexcept;
-
-        bool ready() noexcept { return m_dev.ready(); }
 
         bool readId(uint8_t& res) noexcept;
         bool readStatus(uint8_t& res) noexcept;

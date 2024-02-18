@@ -18,8 +18,8 @@ class Display
         };
 
         template <typename P>
-        Display(P&& port, uint8_t address)
-            : m_dev(std::move(port), address)
+        Display(P& port, uint8_t address)
+            : m_dev(port, address)
         {
         }
 

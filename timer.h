@@ -15,8 +15,12 @@ class Timer
             reset();
         }
 
+        template <class Rep, class Period>
+        static void wait(std::chrono::duration<Rep, Period> d) { Timer(d).wait(); }
+
         void reset();
         bool expired() const;
+        void wait() const;
 
     private:
         uint32_t m_start;

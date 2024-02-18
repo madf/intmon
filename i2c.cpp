@@ -14,9 +14,13 @@ void PortBase::init()
     enable();
 }
 
+bool PortBase::waitBusy()
+{
+    return waitBitOff(&m_regs->SR2, BIT(1)); // Wait while BUSY
+}
+
 bool PortBase::start()
 {
-    waitBitOff(&m_regs->SR2, BIT(1)); // Wait while BUSY
     setBit(&m_regs->CR1, BIT(8)); // START
     return waitBitOn(&m_regs->SR1, BIT(0)); // Wait START
 }
@@ -57,7 +61,7 @@ std::pair<bool, uint8_t> PortBase::readByte(AckNack ack)
         setBit(&m_regs->CR1, BIT(10));
     else
         clearBit(&m_regs->CR1, BIT(10));
-    const auto success = waitBitOff(&m_regs->SR1, BIT(6)); // Wait RxNE
+    const auto success = waitBitOn(&m_regs->SR1, BIT(6)); // Wait RxNE
     return {success, m_regs->DR};
 }
 

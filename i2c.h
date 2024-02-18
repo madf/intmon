@@ -76,14 +76,15 @@ class PortBase
         {
         }
 
-        PortBase(const PortBase&) = delete;
+        PortBase(const PortBase&) = default;
         PortBase(PortBase&&) = default;
 
-        PortBase& operator=(const PortBase&) = delete;
+        PortBase& operator=(const PortBase&) = default;
         PortBase& operator=(PortBase&&) = default;
 
         void init();
 
+        bool waitBusy();
         bool start();
         void stop();
 

@@ -13,8 +13,8 @@ class Device
 
     public:
         template <typename Port>
-        Device(Port&& port, uint8_t address)
-            : m_port(std::move(port)),
+        Device(Port& port, uint8_t address)
+            : m_port(port),
               m_address(address)
         {
             static_assert(isPort_v<Port>, "Port must be an I2C port");

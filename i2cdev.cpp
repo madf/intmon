@@ -47,6 +47,8 @@ bool Device::writeRegs(uint8_t regNum, const void* data, size_t size)
 
 bool Device::preamble(uint8_t regNum)
 {
+    if (!m_port.waitBusy())
+        return false;
     if (!m_port.start())
         return false;
     if (!m_port.writeAddress(m_address, ReadWrite::WRITE))

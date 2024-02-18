@@ -3,6 +3,7 @@
 #include "led.h"
 #include "i2c.h"
 #include "display.h"
+#include "bme280.h"
 #include "systick.h"
 #include "timer.h"
 #include "clocks.h"
@@ -38,15 +39,45 @@ int main()
 
     MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
 
-    Display display(I2C1(SysClock::APB1Freq, 100000), 0x3C);
+    auto port = I2C1(SysClock::APB1Freq, 100000);
+    Display display(port, 0x3C);
     display.init();
+    Timer::wait(std::chrono::milliseconds(10));
+    BME280 sensor(port, 0x76);
+    sensor.init();
+
+    const auto tinyFont = Font::font6x8();
 
     Timer timer(std::chrono::seconds(1));
     size_t i = 0;
     for (;;) {
         if (timer.expired())
         {
-            display.printAt(0, 0, Font::font16x26(), std::to_string(i++));
+            uint32_t h = 0;
+            uint32_t p = 0;
+            int32_t t = 0;
+            if (!sensor.readData(h, p, t))
+            {
+                display.printAt(75, 2,  tinyFont, "Sensor");
+                display.printAt(75, 12, tinyFont, "failure");
+                display.update();
+                continue;
+            }
+            h /= 1024;
+            p /= 25600;
+            t /= 10;
+            // Convert hPa to mmhg
+            p *= 75;
+            p /= 100;
+            const auto temp = std::to_string(t / 10) + "." + std::to_string(t % 10);
+
+            display.clear();
+            display.printAt(75, 2,  tinyFont, temp);
+            display.printAt(75, 12, tinyFont, std::to_string(p));
+            display.printAt(75, 22, tinyFont, std::to_string(h));
+            display.printAt(107, 2,  tinyFont, "C");
+            display.printAt(100, 12, tinyFont, "mmhg");
+            display.printAt(107, 22, tinyFont, "%");
             display.update();
             led.flip();
             //LED2::set(on2);

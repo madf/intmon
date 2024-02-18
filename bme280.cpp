@@ -1,5 +1,7 @@
 #include "bme280.h"
 
+#include "timer.h"
+
 namespace
 {
 
@@ -32,7 +34,7 @@ enum Registers : uint8_t {
     CAL26 = 0xE1, // R calibration stored in 0xE1-0xF0
 
     CONTROLHUMID = 0xF2,
-    STATUS = 0XF3,
+    STATUS = 0xF3,
     CONTROL = 0xF4,
     CONFIG = 0xF5,
     PRESSUREDATA = 0xF7,
@@ -53,20 +55,13 @@ uint32_t fromTwo(uint32_t h, uint32_t l)
 
 }
 
-BME280::BME280(I2C_HandleTypeDef& handle, uint8_t address) noexcept
-    : m_dev(handle, address)
-{
-}
-
 auto BME280::init(Mode mode,
-                        Sampling st,
+                  Sampling st,
                   Sampling sp,
                   Sampling sh,
                   Filter filter,
                   Standby dur) noexcept -> Status
 {
-    if (!m_dev.ready())
-        return Status::NOT_READY;
     uint8_t id = 0;
     if (!readId(id))
         return Status::READING_ID_FAILURE;
@@ -78,7 +73,7 @@ auto BME280::init(Mode mode,
 
     for (bool res = true; res;)
     {
-        HAL_Delay(10);
+        Timer::wait(std::chrono::milliseconds(10));
         if (!isReadingCalibration(res))
             return Status::READING_CALIBRATION_FAILURE;
     }
@@ -88,7 +83,7 @@ auto BME280::init(Mode mode,
 
     if (!setSampling(mode, st, sp, sh, filter, dur))
         return Status::SETTING_SAMPLING_FAILURE;
-    HAL_Delay(100);
+    Timer::wait(std::chrono::milliseconds(100));
 
     return Status::OK;
 }
@@ -96,7 +91,7 @@ auto BME280::init(Mode mode,
 auto BME280::init() noexcept -> Status
 {
     return init(Mode::NORMAL,
-                 Sampling::X16,
+                Sampling::X16,
                 Sampling::X16,
                 Sampling::X16,
                 Filter::OFF,
