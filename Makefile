@@ -27,7 +27,7 @@ OBJDUMP = $(HOST)-objdump
 STRIP = $(HOST)-strip
 SIZE = $(HOST)-size
 
-SOURCES = vector_table.S startup.S sbrk.c syscalls.c main.cpp display.cpp bme280.cpp i2cdev.cpp i2c.cpp pwr.cpp fonts.cpp timer.cpp systick.cpp utils.cpp
+SOURCES = vector_table.S startup.S sbrk.c syscalls.c main.cpp display.cpp bme280.cpp ina219.cpp i2cdev.cpp i2c.cpp pwr.cpp fonts.cpp timer.cpp systick.cpp utils.cpp
 
 SANITIZED_SOURCES = $(patsubst %.S,,$(SOURCES))
 
