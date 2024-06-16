@@ -5,13 +5,20 @@
 namespace LEDs
 {
 
+struct LEDBase
+{
+    protected:
+        bool m_state;
+
+        LEDBase() : m_state(false) {}
+};
+
 template <typename Pin>
-struct LED
+struct LED : LEDBase
 {
     static_assert(GPIO::isPin_v<Pin>, "LED must be driven by a GPIO pin");
 
     LED()
-        : state(false)
     {
         Pin::enable();
         Pin::setMode(GPIO::Mode::OUTPUT);
@@ -19,17 +26,15 @@ struct LED
 
     void set(bool s)
     {
-        state = s;
-        Pin::set(state);
+        m_state = s;
+        Pin::set(m_state);
     }
 
     void flip()
     {
-        state = !state;
-        Pin::set(state);
+        m_state = !m_state;
+        Pin::set(m_state);
     }
-
-    bool state;
 };
 
 }
