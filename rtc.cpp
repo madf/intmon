@@ -1,15 +1,40 @@
 #include "rtc.h"
 
+#include "rcc.h"
+#include "utils.h"
+
 #include <utility>
+#include <experimental/scope>
 
 using Device = RTC::Device;
+
+namespace
+{
+
+constexpr uint32_t RTC_CLOCK_SELECTION_MASK = 0x00000300;
+
+constexpr auto INIT_MODE       = BIT(7);
+constexpr auto INIT_MODE_IS_ON = BIT(6);
+constexpr auto REGISTER_SYNC   = BIT(5);
+
+constexpr uint32_t YEAR_MASK  = 0x00FF0000;
+constexpr uint32_t MONTH_MASK = 0x00001F00;
+constexpr uint32_t DAY_MASK   = 0x0000003F;
+constexpr uint32_t DATE_MASK  = YEAR_MASK | MONTH_MASK | DAY_MASK;
+
+constexpr uint32_t HOUR_MASK   = 0x003F0000;
+constexpr uint32_t MINUTE_MASK = 0x00007F00;
+constexpr uint32_t SECOND_MASK = 0x0000007F;
+constexpr uint32_t TIME_MASK   = HOUR_MASK | MINUTE_MASK | SECOND_MASK;
+
+}
 
 bool Device::init(const Config& config)
 {
     setClockSource(config.clockSource);
     enable();
 
-    auto atExit = std::experimental::scope_exit(wpEnable);
+    auto wpEnabler = std::experimental::scope_exit(wpEnable);
     wpDisable();
 
     if (!enterInit())
@@ -24,17 +49,36 @@ bool Device::init(const Config& config)
 
     setOutputType(config.outputType);
 
-    return true;
+    return resync();
+}
+
+bool Device::resync()
+{
+    clearBit(&Regs->ISR, REGISTER_SYNC);
+    return waitBitOn(&Regs->ISR, REGISTER_SYNC);
+}
+
+void Device::enable()
+{
+    setBit(&RCC::Regs->BDCR, BIT(15));
 }
 
 void Device::setClockSource(ClockSource cs)
 {
+    // Store old register state
+    // After resset register goes to 0x00000000
+    const auto old = RCC::Regs->BDCR & ~RTC_CLOCK_SELECTION_MASK;
     // Reset backup domain
-    setBit(&RCC->BDCR, BIT(16));
-    clearBit(&RCC->BDCR, BIT(16));
+    setBit(&RCC::Regs->BDCR, BIT(16));
+    clearBit(&RCC::Regs->BDCR, BIT(16));
+    // Restore register state
+    RCC::Regs->BDCR = old;
+    // If LSE was enabled, wait its activation
+    if (isBitSet(&RCC::Regs->BDCR, BIT(0))) // If LSE was enabled
+        waitBitOn(&RCC::Regs->BDCR, BIT(1)); // Wait LSE
 
-    clearBit(&RCC->BDCR, 0x03 << 8);
-    setBit(&RCC->BDCR, std::to_underlying(cs) << 8);
+    clearBit(&RCC::Regs->BDCR, RTC_CLOCK_SELECTION_MASK);
+    setBit(&RCC::Regs->BDCR, std::to_underlying(cs) << 8);
 }
 
 void Device::setFormat(Format f)
@@ -64,6 +108,71 @@ void Device::setOutputType(OutputType t)
         setBit(&Regs->TAFCR, BIT(18));
 }
 
-void Device::enterInit()
+bool Device::enterInit()
 {
+    if (isBitSet(&Regs->ISR, INIT_MODE_IS_ON))
+        return true;
+    setBit(&Regs->ISR, INIT_MODE);
+    return waitBitOn(&Regs->ISR, INIT_MODE_IS_ON);
+}
+
+bool Device::exitInit()
+{
+    if (!isBitSet(&Regs->ISR, INIT_MODE_IS_ON))
+        return true;
+    clearBit(&Regs->ISR, INIT_MODE);
+    return waitBitOff(&Regs->ISR, INIT_MODE_IS_ON);
+}
+
+void Device::wpEnable()
+{
+    Regs->WPR = 0xFF;
+}
+
+void Device::wpDisable()
+{
+    Regs->WPR = 0xCA;
+    Regs->WPR = 0x53;
+}
+
+auto Device::getDate() -> Date
+{
+    const auto dr = Regs->DR;
+    return {fromBCD(u8((dr & YEAR_MASK) >> 8)),
+            fromBCD(u8((dr & MONTH_MASK) >> 4)),
+            fromBCD(u8(dr & DAY_MASK))};
+}
+
+auto Device::getTime() -> Time
+{
+    const auto tr = Regs->TR;
+    return {fromBCD(u8((tr & HOUR_MASK) >> 8)),
+            fromBCD(u8((tr & MINUTE_MASK) >> 4)),
+            fromBCD(u8(tr & SECOND_MASK))};
+}
+
+bool Device::set(uint8_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_t ss)
+{
+    auto atExit = std::experimental::scope_exit(wpEnable);
+    wpDisable();
+
+    if (!enterInit())
+        return false;
+
+    const auto dr = (toBCD(y) << 8) +
+                    (toBCD(m) << 4) +
+                    toBCD(d);
+    const auto tr = (toBCD(hh) << 8) +
+                    (toBCD(mm) << 4) +
+                    toBCD(ss);
+
+    clearBit(&Regs->DR, DATE_MASK);
+    setBit(&Regs->DR, dr);
+    clearBit(&Regs->TR, TIME_MASK);
+    setBit(&Regs->TR, tr);
+
+    if (!exitInit())
+        return false;
+
+    return resync();
 }

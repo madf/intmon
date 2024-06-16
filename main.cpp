@@ -1,8 +1,10 @@
 #include "gpio.h"
 #include "mco.h"
 #include "led.h"
+#include "button.h"
 #include "i2c.h"
 #include "display.h"
+#include "rtc.h"
 #include "bme280.h"
 #include "ina219.h"
 #include "systick.h"
@@ -18,6 +20,7 @@ void SystemInit()
 }
 
 using LED = LEDs::LED<GPIO::Pin<'C', 13>>; // Blue LED
+using Button = Buttons::Button<GPIO::Pin<'B', 2>>;
 //using LED2 = GPIO::Pin<'A', 0>;           // Red LED
 using MCO1 = MCO::Port<1>;
 using HSE = Clocks::HSE<25.0>;
@@ -28,6 +31,52 @@ using I2C1 = I2C::Port<1>;
 
 namespace
 {
+
+enum class OutMode { TIME, VOLTAGE };
+
+struct Fonts
+{
+    Fonts()
+        : big(Font::font11x18()),
+          tiny(Font::font6x8())
+    {}
+    Font big;
+    Font tiny;
+};
+
+OutMode nextMode(OutMode v)
+{
+    if (v == OutMode::TIME)
+        return OutMode::VOLTAGE;
+    return OutMode::TIME;
+}
+
+std::string lz(auto v) noexcept
+{
+    if (v < 10)
+        return "0" + std::to_string(v);
+    return std::to_string(v);
+}
+
+std::string formatTime(const RTC::Device::Time& time)
+{
+    std::string res;
+    res += lz(time.hour);
+    res += ":";
+    res += lz(time.minute);
+    return res;
+}
+
+std::string formatDate(const RTC::Device::Date& date)
+{
+    std::string res;
+    res += std::to_string(date.year + 2000);
+    res += "-";
+    res += lz(date.month);
+    res += "-";
+    res += lz(date.day);
+    return res;
+}
 
 struct BME280Data
 {
@@ -86,6 +135,22 @@ bool readINA219(INA219& sensor, INA219Data& data)
     return true;
 }
 
+void showTime(Display& display, const Fonts& fonts, const RTC::Device::DateTime& dt)
+{
+    display.printAt(0, 0, fonts.big, formatTime(dt.time));
+    display.printAt(0, 22, fonts.tiny, formatDate(dt.date));
+}
+
+void showVoltage(Display& display, const Fonts& fonts, const INA219Data& data)
+{
+    display.printAt(0, 2,  fonts.tiny, data.v);
+    display.printAt(0, 12, fonts.tiny, data.c);
+    display.printAt(0, 22, fonts.tiny, data.charge);
+    display.printAt(45, 2,  fonts.tiny, "V");
+    display.printAt(45, 12, fonts.tiny, "A");
+    display.printAt(45, 22, fonts.tiny, "%");
+}
+
 }
 
 int main()
@@ -94,57 +159,63 @@ int main()
     SysClock::enable();
     SysTick::init(SysClock::AHBFreq * 1000); // MHz to ms
     LED led;
+    Button::init();
 
     MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
 
     auto port = I2C1(SysClock::APB1Freq, 100000);
     Display display(port, 0x3C);
     display.init();
+    RTC::Device::init();
     BME280 sensor1(port, 0x76);
     sensor1.init();
-    INA219 sensor2(port, 0x40);
-    sensor2.init();
+    //INA219 sensor2(port, 0x40);
+    //sensor2.init();
 
-    const auto tinyFont = Font::font6x8();
+    Fonts fonts;
 
     Timer timer(std::chrono::seconds(1));
-    size_t i = 0;
+    OutMode mode = OutMode::TIME;
     for (;;) {
+        if (Button::isPressed())
+            mode = nextMode(mode);
         if (timer.expired())
         {
             timer.reset();
             BME280Data bmeData;
             if (!readBME280(sensor1, bmeData))
             {
-                display.printAt(75, 2,  tinyFont, "BME280");
-                display.printAt(75, 12, tinyFont, "failure");
+                display.printAt(75, 2,  fonts.tiny, "BME280");
+                display.printAt(75, 12, fonts.tiny, "failure");
                 display.update();
                 continue;
             }
 
-            INA219Data inaData;
+            /*INA219Data inaData;
             if (!readINA219(sensor2, inaData))
             {
-                display.printAt(75, 2,  tinyFont, "BME280");
-                display.printAt(75, 12, tinyFont, "failure");
+                display.printAt(75, 2,  fonts.tiny, "INA219");
+                display.printAt(75, 12, fonts.tiny, "failure");
                 display.update();
                 continue;
-            }
+            }*/
 
             display.clear();
-            display.printAt(75, 2,  tinyFont, bmeData.temp);
-            display.printAt(75, 12, tinyFont, std::to_string(bmeData.p));
-            display.printAt(75, 22, tinyFont, std::to_string(bmeData.h));
-            display.printAt(107, 2,  tinyFont, "C");
-            display.printAt(100, 12, tinyFont, "mmhg");
-            display.printAt(107, 22, tinyFont, "%");
+            display.rect(0, 0, 128, 32, Display::Color::White);
+            display.printAt(75, 2,  fonts.tiny, bmeData.temp);
+            display.printAt(75, 12, fonts.tiny, std::to_string(bmeData.p));
+            display.printAt(75, 22, fonts.tiny, std::to_string(bmeData.h));
+            display.printAt(107, 2,  fonts.tiny, "C");
+            display.printAt(100, 12, fonts.tiny, "mmhg");
+            display.printAt(107, 22, fonts.tiny, "%");
 
-            display.printAt(0, 2,  tinyFont, inaData.v);
-            display.printAt(0, 12, tinyFont, inaData.c);
-            display.printAt(0, 22, tinyFont, inaData.charge);
-            display.printAt(45, 2,  tinyFont, "V");
-            display.printAt(45, 12, tinyFont, "A");
-            display.printAt(45, 22, tinyFont, "%");
+            //if (mode == OutMode::TIME)
+                showTime(display, fonts, RTC::Device::get());
+            //else
+                //showVoltage(display, fonts, inaData);
+
+            display.vline(71, 0, 32, Display::Color::White);
+
             display.update();
             led.flip();
         }

@@ -85,12 +85,48 @@ class Device
             {}
         };
 
+        struct Date
+        {
+            uint8_t year;
+            uint8_t month;
+            uint8_t day;
+        };
+
+        struct Time
+        {
+            uint8_t hour;
+            uint8_t minute;
+            uint8_t second;
+        };
+
+        struct DateTime
+        {
+            Date date;
+            Time time;
+
+            auto year() const { return date.year; }
+            auto month() const { return date.month; }
+            auto day() const { return date.day; }
+
+            auto hour() const { return time.hour; }
+            auto minute() const { return time.minute; }
+            auto second() const { return time.second; }
+        };
+
         static bool init(const Config& config);
+        static bool init() { return init({}); }
+
+        static bool resync();
+
+        static Date getDate();
+        static Time getTime();
+        static DateTime get() { return {getDate(), getTime()}; }
+        static bool set(uint8_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_t ss);
 
     private:
         static void enable();
-        static void enterInit();
-        static void exitInit();
+        static bool enterInit();
+        static bool exitInit();
         static void wpEnable();
         static void wpDisable();
 
