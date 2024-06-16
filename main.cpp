@@ -20,7 +20,9 @@ void SystemInit()
 }
 
 using LED = LEDs::LED<GPIO::Pin<'C', 13>>; // Blue LED
-using Button = Buttons::Button<GPIO::Pin<'B', 2>>;
+using ButtonMenu = Buttons::Button<GPIO::Pin<'B', 2>>;
+using ButtonPlus = Buttons::Button<GPIO::Pin<'B', 3>>;
+using ButtonMinus = Buttons::Button<GPIO::Pin<'B', 4>>;
 //using LED2 = GPIO::Pin<'A', 0>;           // Red LED
 using MCO1 = MCO::Port<1>;
 using HSE = Clocks::HSE<25.0>;
@@ -51,18 +53,19 @@ OutMode nextMode(OutMode v)
     return OutMode::TIME;
 }
 
-std::string fromBCD(uint8_t v)
+std::string lz(uint8_t v)
 {
-    return std::to_string((v & 0xF0) >> 4) +
-           std::to_string(v & 0x0F);
+    if (v < 10)
+        return "0" + std::to_string(v);
+    return std::to_string(v);
 }
 
 std::string formatTime(const RTC::Device::Time& time)
 {
     std::string res;
-    res += fromBCD(time.hour);
+    res += lz(time.hour);
     res += ":";
-    res += fromBCD(time.minute);
+    res += lz(time.minute);
     return res;
 }
 
@@ -71,9 +74,9 @@ std::string formatDate(const RTC::Device::Date& date)
     std::string res;
     res += std::to_string(date.year + 2000);
     res += "-";
-    res += fromBCD(date.month);
+    res += lz(date.month);
     res += "-";
-    res += fromBCD(date.day);
+    res += lz(date.day);
     return res;
 }
 
@@ -158,7 +161,9 @@ int main()
     SysClock::enable();
     SysTick::init(SysClock::AHBFreq * 1000); // MHz to ms
     LED led;
-    Button button;
+    ButtonMenu buttonMenu;
+    ButtonPlus buttonPlus;
+    ButtonMinus buttonMinus;
 
     MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
 
@@ -176,10 +181,15 @@ int main()
     Timer timer(std::chrono::seconds(1));
     OutMode mode = OutMode::TIME;
     for (;;) {
-        if (button.get() == Button::State::PRESSED)
+        const auto bs = buttonMenu.get();
+        if (bs == ButtonMenu::State::PRESSED)
         {
             mode = nextMode(mode);
-            led.flip();
+            led.set(false);
+        }
+        else if (bs == ButtonMenu::State::RELEASED)
+        {
+            led.set(true);
         }
         if (timer.expired())
         {
