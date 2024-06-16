@@ -126,6 +126,12 @@ struct Pin
         auto* regs = getRegs(bank);
         regs->BSRR = (1U << number) << (val ? 0x00 : 0x10);
     }
+    static bool get()
+    {
+        auto* regs = getRegs(bank);
+        const uint32_t mask = 1U << number;
+        return (regs->IDR & mask) == mask;
+    }
 };
 
 template <typename T>

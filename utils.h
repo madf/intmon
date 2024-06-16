@@ -47,3 +47,20 @@ void clearBit(volatile uint32_t* reg, uint32_t bit)
 {
     *reg &= ~bit;
 }
+
+inline
+uint8_t u8(auto v) { return static_cast<uint8_t>(v); }
+
+inline
+uint8_t fromBCD(uint8_t v)
+{
+    return u8(((v & 0xF0) >> 4) * 10 +
+              (v & 0x0F));
+}
+
+inline
+uint8_t toBCD(uint8_t v)
+{
+    return u8(((v / 10) << 4) +
+              v % 10);
+}
