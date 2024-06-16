@@ -138,16 +138,16 @@ void Device::wpDisable()
 auto Device::getDate() -> Date
 {
     const auto dr = Regs->DR;
-    return {fromBCD(u8((dr & YEAR_MASK) >> 8)),
-            fromBCD(u8((dr & MONTH_MASK) >> 4)),
+    return {fromBCD(u8((dr & YEAR_MASK) >> 16)),
+            fromBCD(u8((dr & MONTH_MASK) >> 8)),
             fromBCD(u8(dr & DAY_MASK))};
 }
 
 auto Device::getTime() -> Time
 {
     const auto tr = Regs->TR;
-    return {fromBCD(u8((tr & HOUR_MASK) >> 8)),
-            fromBCD(u8((tr & MINUTE_MASK) >> 4)),
+    return {fromBCD(u8((tr & HOUR_MASK) >> 16)),
+            fromBCD(u8((tr & MINUTE_MASK) >> 8)),
             fromBCD(u8(tr & SECOND_MASK))};
 }
 

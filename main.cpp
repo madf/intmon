@@ -51,19 +51,18 @@ OutMode nextMode(OutMode v)
     return OutMode::TIME;
 }
 
-std::string lz(auto v) noexcept
+std::string fromBCD(uint8_t v)
 {
-    if (v < 10)
-        return "0" + std::to_string(v);
-    return std::to_string(v);
+    return std::to_string((v & 0xF0) >> 4) +
+           std::to_string(v & 0x0F);
 }
 
 std::string formatTime(const RTC::Device::Time& time)
 {
     std::string res;
-    res += lz(time.hour);
+    res += fromBCD(time.hour);
     res += ":";
-    res += lz(time.minute);
+    res += fromBCD(time.minute);
     return res;
 }
 
@@ -72,9 +71,9 @@ std::string formatDate(const RTC::Device::Date& date)
     std::string res;
     res += std::to_string(date.year + 2000);
     res += "-";
-    res += lz(date.month);
+    res += fromBCD(date.month);
     res += "-";
-    res += lz(date.day);
+    res += fromBCD(date.day);
     return res;
 }
 
@@ -159,7 +158,7 @@ int main()
     SysClock::enable();
     SysTick::init(SysClock::AHBFreq * 1000); // MHz to ms
     LED led;
-    Button::init();
+    Button button;
 
     MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
 
@@ -177,8 +176,11 @@ int main()
     Timer timer(std::chrono::seconds(1));
     OutMode mode = OutMode::TIME;
     for (;;) {
-        if (Button::isPressed())
+        if (button.get() == Button::State::PRESSED)
+        {
             mode = nextMode(mode);
+            led.flip();
+        }
         if (timer.expired())
         {
             timer.reset();
@@ -201,7 +203,7 @@ int main()
             }*/
 
             display.clear();
-            display.rect(0, 0, 128, 32, Display::Color::White);
+            //display.rect(0, 0, 128, 32, Display::Color::White);
             display.printAt(75, 2,  fonts.tiny, bmeData.temp);
             display.printAt(75, 12, fonts.tiny, std::to_string(bmeData.p));
             display.printAt(75, 22, fonts.tiny, std::to_string(bmeData.h));
@@ -217,7 +219,6 @@ int main()
             display.vline(71, 0, 32, Display::Color::White);
 
             display.update();
-            led.flip();
         }
     }
     return 0;
