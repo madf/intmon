@@ -159,11 +159,11 @@ bool Device::set(uint8_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_
     if (!enterInit())
         return false;
 
-    const auto dr = (toBCD(y) << 8) +
-                    (toBCD(m) << 4) +
+    const auto dr = (toBCD(y) << 16) +
+                    (toBCD(m) << 8) +
                     toBCD(d);
-    const auto tr = (toBCD(hh) << 8) +
-                    (toBCD(mm) << 4) +
+    const auto tr = (toBCD(hh) << 16) +
+                    (toBCD(mm) << 8) +
                     toBCD(ss);
 
     clearBit(&Regs->DR, DATE_MASK);
