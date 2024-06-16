@@ -1,7 +1,5 @@
 #pragma once
 
-#include <functional>
-#include <experimental/scope>
 #include <cstdint>
 
 namespace PWR
@@ -24,15 +22,6 @@ class Interface
         static bool isEnabled();
 
         static void setVoltageScalingMode(uint8_t m);
-
-        static auto scopedEnabler()
-        {
-            std::function<void ()> f([](){});
-            if (!isEnabled())
-                f = disable;
-            enable();
-            return std::experimental::scope_exit(f);
-        };
 };
 
 }
