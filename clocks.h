@@ -130,7 +130,7 @@ struct LSEBase : Base<&RCC::Type::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/>
     template <class Rep, class Period>
     static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
-        auto atExit = PWR::Interface::scopedEnabler();
+        PWR::Interface::enable();
 
         if (!PWR::Interface::disableBackupDomainWriteProtection())
             return false;
@@ -283,7 +283,6 @@ struct SysClockBase
         if (!Input::enable(timeout))
             return false;
 
-        auto atExit = PWR::Interface::scopedEnabler();
         PWR::Interface::setVoltageScalingMode(2);
     }
 
