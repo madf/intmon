@@ -37,6 +37,9 @@ class Display
         bool printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace = 1);
         bool printCharAt(uint8_t x, uint8_t y, const Font& font, char c);
         bool bar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Color color);
+        bool hline(uint8_t x, uint8_t y, uint8_t l, Color color);
+        bool vline(uint8_t x, uint8_t y, uint8_t l, Color color);
+        bool rect(uint8_t x, uint8_t y, uint8_t l, uint8_t h, Color color);
 
     private:
         I2C::Device m_dev;

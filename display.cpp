@@ -99,7 +99,7 @@ bool Display::bar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Color color)
     for (uint8_t i = 0; i < h; ++i)
     {
         if (y + i > 31)
-                return false;
+            return false;
         for (uint8_t j = 0; j < w; ++j)
         {
             if (x + j > 127)
@@ -116,4 +116,44 @@ bool Display::bar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Color color)
         }
     }
     return res;
+}
+
+bool Display::hline(uint8_t x, uint8_t y, uint8_t l, Color color)
+{
+    auto& p = m_pages[y / 8];
+    const auto offset = y % 8;
+    for (uint8_t i = 0; i < l; ++i)
+    {
+        if (x + i > 127)
+            return false;
+        if (color == Color::White)
+            p[x + i] |= 1 << offset;
+        else
+            p[x + i] &= ~(1 << offset);
+    }
+    return true;
+}
+
+bool Display::vline(uint8_t x, uint8_t y, uint8_t l, Color color)
+{
+    for (uint8_t i = 0; i < l; ++i)
+    {
+        if (y + i > 31)
+            return false;
+        auto& p = m_pages[(y + i) / 8];
+        const auto offset = (y + i) % 8;
+        if (color == Color::White)
+            p[x] |= 1 << offset;
+        else
+            p[x] &= ~(1 << offset);
+    }
+    return true;
+}
+
+bool Display::rect(uint8_t x, uint8_t y, uint8_t l, uint8_t h, Color color)
+{
+    return hline(x, y, l, color) &&
+           hline(x, y + h - 1, l, color) &&
+           vline(x, y, h, color) &&
+           vline(x + l - 1, y, h, color);
 }
