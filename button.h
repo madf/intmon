@@ -6,7 +6,7 @@
 namespace Buttons
 {
 
-class ButtonBase
+class Base
 {
     public:
         enum class State { PRESSED, RELEASED, NO_CHANGE };
@@ -16,7 +16,7 @@ class ButtonBase
         bool m_pressed;
         Timer m_protection;
 
-        ButtonBase() : m_pressed(false), m_protection(std::chrono::milliseconds(10)) {}
+        Base() : m_pressed(false), m_protection(std::chrono::milliseconds(10)) {}
 
         void setPressed(bool v)
         {
@@ -31,8 +31,8 @@ class ButtonBase
  * toggleOn - button state on which we toggle the internal state;
  * pull     - whether the GPIO pin should be pulled up or down.
  */
-template <typename Pin, ButtonBase::ToggleOn toggleOn = ButtonBase::ToggleOn::PRESS, GPIO::Pull pull = GPIO::Pull::UP>
-struct Button : ButtonBase
+template <typename Pin, Base::ToggleOn toggleOn = Base::ToggleOn::PRESS, GPIO::Pull pull = GPIO::Pull::UP>
+struct Button : Base
 {
     static_assert(GPIO::isPin_v<Pin>, "Button must be driven by a GPIO pin");
 
@@ -68,6 +68,11 @@ struct Button : ButtonBase
             return State::RELEASED;
         }
         return State::NO_CHANGE;
+    }
+
+    bool isPressed() const
+    {
+        return m_pressed;
     }
 };
 

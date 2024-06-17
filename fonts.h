@@ -26,3 +26,10 @@ class Font
                   m_data(d)
         {}
 };
+
+struct Fonts
+{
+    Font big = Font::font11x18();
+    Font medium = Font::font7x10();
+    Font tiny = Font::font6x8();
+};

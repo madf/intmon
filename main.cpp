@@ -1,7 +1,8 @@
 #include "gpio.h"
 #include "mco.h"
 #include "led.h"
-#include "button.h"
+#include "keyboard.h"
+#include "screen.h"
 #include "i2c.h"
 #include "display.h"
 #include "rtc.h"
@@ -20,9 +21,6 @@ void SystemInit()
 }
 
 using LED = LEDs::LED<GPIO::Pin<'C', 13>>; // Blue LED
-using ButtonMenu = Buttons::Button<GPIO::Pin<'B', 2>>;
-using ButtonPlus = Buttons::Button<GPIO::Pin<'B', 3>>;
-using ButtonMinus = Buttons::Button<GPIO::Pin<'B', 4>>;
 //using LED2 = GPIO::Pin<'A', 0>;           // Red LED
 using MCO1 = MCO::Port<1>;
 using HSE = Clocks::HSE<25.0>;
@@ -36,16 +34,6 @@ namespace
 
 enum class OutMode { TIME, VOLTAGE };
 
-struct Fonts
-{
-    Fonts()
-        : big(Font::font11x18()),
-          tiny(Font::font6x8())
-    {}
-    Font big;
-    Font tiny;
-};
-
 OutMode nextMode(OutMode v)
 {
     if (v == OutMode::TIME)
@@ -53,13 +41,13 @@ OutMode nextMode(OutMode v)
     return OutMode::TIME;
 }
 
-std::string lz(uint8_t v)
+OutMode prevMode(OutMode v)
 {
-    if (v < 10)
-        return "0" + std::to_string(v);
-    return std::to_string(v);
+    if (v == OutMode::TIME)
+        return OutMode::VOLTAGE;
+    return OutMode::TIME;
 }
-
+/*
 std::string formatTime(const RTC::Device::Time& time)
 {
     std::string res;
@@ -79,6 +67,7 @@ std::string formatDate(const RTC::Device::Date& date)
     res += lz(date.day);
     return res;
 }
+*/
 
 struct BME280Data
 {
@@ -136,7 +125,7 @@ bool readINA219(INA219& sensor, INA219Data& data)
     data.charge = std::to_string(static_cast<unsigned>(ch));
     return true;
 }
-
+/*
 void showTime(Display& display, const Fonts& fonts, const RTC::Device::DateTime& dt)
 {
     display.printAt(0, 0, fonts.big, formatTime(dt.time));
@@ -152,6 +141,7 @@ void showVoltage(Display& display, const Fonts& fonts, const INA219Data& data)
     display.printAt(45, 12, fonts.tiny, "A");
     display.printAt(45, 22, fonts.tiny, "%");
 }
+*/
 
 }
 
@@ -161,9 +151,7 @@ int main()
     SysClock::enable();
     SysTick::init(SysClock::AHBFreq * 1000); // MHz to ms
     LED led;
-    ButtonMenu buttonMenu;
-    ButtonPlus buttonPlus;
-    ButtonMinus buttonMinus;
+    Keyboard keyboard;
 
     MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
 
@@ -178,18 +166,27 @@ int main()
 
     Fonts fonts;
 
+    Screen::Test screen(display, fonts);
+
     Timer timer(std::chrono::seconds(1));
     OutMode mode = OutMode::TIME;
     for (;;) {
-        const auto bs = buttonMenu.get();
-        if (bs == ButtonMenu::State::PRESSED)
+        const auto e = keyboard.get();
+        if (e.ledAction)
+            led.set(e.ledAction.value() == Keyboard::LEDAction::Off);
+        screen.update(e,
+                      keyboard.menuState(),
+                      keyboard.plusState(),
+                      keyboard.minusState(),
+                      keyboard.escState());
+        /*
+        if (e.action)
         {
-            mode = nextMode(mode);
-            led.set(false);
-        }
-        else if (bs == ButtonMenu::State::RELEASED)
-        {
-            led.set(true);
+            const auto a = e.action.value();
+            if (a == Keyboard::Action::Plus)
+                mode = nextMode(mode);
+            else if (a == Keyboard::Action::Minus)
+                mode = prevMode(mode);
         }
         if (timer.expired())
         {
@@ -203,17 +200,7 @@ int main()
                 continue;
             }
 
-            /*INA219Data inaData;
-            if (!readINA219(sensor2, inaData))
-            {
-                display.printAt(75, 2,  fonts.tiny, "INA219");
-                display.printAt(75, 12, fonts.tiny, "failure");
-                display.update();
-                continue;
-            }*/
-
             display.clear();
-            //display.rect(0, 0, 128, 32, Display::Color::White);
             display.printAt(75, 2,  fonts.tiny, bmeData.temp);
             display.printAt(75, 12, fonts.tiny, std::to_string(bmeData.p));
             display.printAt(75, 22, fonts.tiny, std::to_string(bmeData.h));
@@ -221,15 +208,13 @@ int main()
             display.printAt(100, 12, fonts.tiny, "mmhg");
             display.printAt(107, 22, fonts.tiny, "%");
 
-            //if (mode == OutMode::TIME)
-                showTime(display, fonts, RTC::Device::get());
-            //else
-                //showVoltage(display, fonts, inaData);
+            showTime(display, fonts, RTC::Device::get());
 
             display.vline(71, 0, 32, Display::Color::White);
 
             display.update();
         }
+        */
     }
     return 0;
 }

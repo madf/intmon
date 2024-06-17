@@ -1,5 +1,7 @@
 #pragma once
 
+#include "datetime.h"
+
 #include <array>
 #include <cstdint>
 
@@ -85,34 +87,6 @@ class Device
             {}
         };
 
-        struct Date
-        {
-            uint8_t year;
-            uint8_t month;
-            uint8_t day;
-        };
-
-        struct Time
-        {
-            uint8_t hour;
-            uint8_t minute;
-            uint8_t second;
-        };
-
-        struct DateTime
-        {
-            Date date;
-            Time time;
-
-            auto year() const { return date.year; }
-            auto month() const { return date.month; }
-            auto day() const { return date.day; }
-
-            auto hour() const { return time.hour; }
-            auto minute() const { return time.minute; }
-            auto second() const { return time.second; }
-        };
-
         static bool init(const Config& config);
         static bool init() { return init({}); }
 
@@ -121,7 +95,12 @@ class Device
         static Date getDate();
         static Time getTime();
         static DateTime get() { return {getDate(), getTime()}; }
-        static bool set(uint8_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_t ss);
+        static bool set(uint16_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_t ss);
+        static bool set(const DateTime& dt) { return set(dt.year(), dt.month(), dt.day(), dt.hour(), dt.minute(), dt.second()); }
+        static bool setDate(uint16_t y, uint8_t m, uint8_t d);
+        static bool setDate(const Date& d) { return setDate(d.year, d.month, d.day); }
+        static bool setTime(uint8_t h, uint8_t m, uint8_t s);
+        static bool setTime(const Time& t) { return setTime(t.hour, t.minute, t.second); }
 
     private:
         static void enable();
@@ -135,6 +114,9 @@ class Device
         static void setOutput(Output o);
         static void setPolarity(Polarity p);
         static void setOutputType(OutputType t);
+
+        static void setDateImpl(uint16_t y, uint8_t m, uint8_t d);
+        static void setTimeImpl(uint8_t h, uint8_t m, uint8_t s);
 };
 
 }

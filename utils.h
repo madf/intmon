@@ -2,6 +2,7 @@
 
 #include "timer.h"
 
+#include <string>
 #include <chrono>
 #include <cstdint>
 
@@ -63,4 +64,12 @@ uint8_t toBCD(uint8_t v)
 {
     return u8(((v / 10) << 4) +
               v % 10);
+}
+
+inline
+std::string lz(uint8_t v)
+{
+    if (v < 10)
+        return "0" + std::to_string(v);
+    return std::to_string(v);
 }

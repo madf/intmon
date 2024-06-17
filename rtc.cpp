@@ -151,7 +151,7 @@ auto Device::getTime() -> Time
             fromBCD(u8(tr & SECOND_MASK))};
 }
 
-bool Device::set(uint8_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_t ss)
+bool Device::set(uint16_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_t ss)
 {
     auto atExit = std::experimental::scope_exit(wpEnable);
     wpDisable();
@@ -159,20 +159,61 @@ bool Device::set(uint8_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_
     if (!enterInit())
         return false;
 
-    const auto dr = (toBCD(y) << 16) +
-                    (toBCD(m) << 8) +
-                    toBCD(d);
-    const auto tr = (toBCD(hh) << 16) +
-                    (toBCD(mm) << 8) +
-                    toBCD(ss);
-
-    clearBit(&Regs->DR, DATE_MASK);
-    setBit(&Regs->DR, dr);
-    clearBit(&Regs->TR, TIME_MASK);
-    setBit(&Regs->TR, tr);
+    setDateImpl(y, m, d);
+    setTimeImpl(hh, mm, ss);
 
     if (!exitInit())
         return false;
 
     return resync();
+}
+
+bool Device::setDate(uint16_t y, uint8_t m, uint8_t d)
+{
+    auto atExit = std::experimental::scope_exit(wpEnable);
+    wpDisable();
+
+    if (!enterInit())
+        return false;
+
+    setDateImpl(y, m, d);
+
+    if (!exitInit())
+        return false;
+
+    return resync();
+}
+
+bool Device::setTime(uint8_t h, uint8_t m, uint8_t s)
+{
+    auto atExit = std::experimental::scope_exit(wpEnable);
+    wpDisable();
+
+    if (!enterInit())
+        return false;
+
+    setTimeImpl(h, m, s);
+
+    if (!exitInit())
+        return false;
+
+    return resync();
+}
+
+void Device::setDateImpl(uint16_t y, uint8_t m, uint8_t d)
+{
+    const auto dr = (toBCD(static_cast<uint8_t>(y - 2000)) << 16) |
+                    (toBCD(m) << 8)                               |
+                    toBCD(d);
+    clearBit(&Regs->DR, DATE_MASK);
+    setBit(&Regs->DR, dr);
+}
+
+void Device::setTimeImpl(uint8_t h, uint8_t m, uint8_t s)
+{
+    const auto tr = (toBCD(h) << 16) |
+                    (toBCD(m) << 8)  |
+                    toBCD(s);
+    clearBit(&Regs->TR, TIME_MASK);
+    setBit(&Regs->TR, tr);
 }
