@@ -74,7 +74,6 @@ struct BME280Data
     uint32_t h;
     uint32_t p;
     int32_t t;
-    std::string temp;
 };
 
 bool readBME280(BME280& sensor, BME280Data& data)
@@ -87,7 +86,6 @@ bool readBME280(BME280& sensor, BME280Data& data)
     // Convert hPa to mmhg
     data.p *= 75;
     data.p /= 100;
-    data.temp = std::to_string(data.t / 10) + "." + std::to_string(data.t % 10);
     return true;
 }
 
@@ -166,7 +164,7 @@ int main()
 
     Fonts fonts;
 
-    Screen::Test screen(display, fonts);
+    Screen::Main screen(display, fonts);
 
     Timer timer(std::chrono::seconds(1));
     OutMode mode = OutMode::TIME;
@@ -174,20 +172,15 @@ int main()
         const auto e = keyboard.get();
         if (e.ledAction)
             led.set(e.ledAction.value() == Keyboard::LEDAction::Off);
-        screen.update(e,
-                      keyboard.menuState(),
-                      keyboard.plusState(),
-                      keyboard.minusState(),
-                      keyboard.escState());
-        /*
         if (e.action)
         {
             const auto a = e.action.value();
             if (a == Keyboard::Action::Plus)
-                mode = nextMode(mode);
+                screen.next();
             else if (a == Keyboard::Action::Minus)
-                mode = prevMode(mode);
+                screen.prev();
         }
+
         if (timer.expired())
         {
             timer.reset();
@@ -200,21 +193,8 @@ int main()
                 continue;
             }
 
-            display.clear();
-            display.printAt(75, 2,  fonts.tiny, bmeData.temp);
-            display.printAt(75, 12, fonts.tiny, std::to_string(bmeData.p));
-            display.printAt(75, 22, fonts.tiny, std::to_string(bmeData.h));
-            display.printAt(107, 2,  fonts.tiny, "C");
-            display.printAt(100, 12, fonts.tiny, "mmhg");
-            display.printAt(107, 22, fonts.tiny, "%");
-
-            showTime(display, fonts, RTC::Device::get());
-
-            display.vline(71, 0, 32, Display::Color::White);
-
-            display.update();
+            screen.update({bmeData.h, bmeData.p, bmeData.t}, RTC::Device::get());
         }
-        */
     }
     return 0;
 }

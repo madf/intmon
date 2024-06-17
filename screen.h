@@ -57,10 +57,12 @@ class Main : public Base
         HPT m_hpt;
         DateTime m_dt;
 
+        void show();
         void showDT();
         void showTemp();
         void showPress();
         void showHum();
+        void showCommon();
 };
 
 class Menu : public Base
