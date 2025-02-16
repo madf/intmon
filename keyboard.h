@@ -8,7 +8,7 @@
 class Keyboard
 {
     public:
-        enum class Action { Menu, Plus, Minus, Esc };
+        enum class Action { Enter, Plus, Minus, Exit };
         enum class LEDAction { On, Off };
 
         struct Event
@@ -18,23 +18,25 @@ class Keyboard
         };
 
         Event get();
-        bool menuState() const { return m_menuBtn.isPressed(); }
+        /*
+        bool enterState() const { return m_enterBtn.isPressed(); }
         bool plusState() const { return m_plusBtn.isPressed(); }
         bool minusState() const { return m_minusBtn.isPressed(); }
-        bool escState() const { return m_escBtn.isPressed(); }
+        bool exitState() const { return m_exitBtn.isPressed(); }
+        */
 
     private:
-        using MenuBtn  = Buttons::Button<GPIO::Pin<'B', 2>>;
+        using EnterBtn  = Buttons::Button<GPIO::Pin<'B', 2>>;
         using PlusBtn  = Buttons::Button<GPIO::Pin<'B', 3>>;
         using MinusBtn = Buttons::Button<GPIO::Pin<'B', 4>>;
-        using EscBtn   = Buttons::Button<GPIO::Pin<'B', 5>>;
+        using ExitBtn   = Buttons::Button<GPIO::Pin<'B', 5>>;
 
         bool m_ledState = false;
 
-        MenuBtn  m_menuBtn;
+        EnterBtn m_enterBtn;
         PlusBtn  m_plusBtn;
         MinusBtn m_minusBtn;
-        EscBtn   m_escBtn;
+        ExitBtn  m_exitBtn;
 
         Event makeEvent(Action a);
 };

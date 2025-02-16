@@ -6,6 +6,7 @@
 #include "i2c.h"
 #include "display.h"
 #include "rtc.h"
+#include "adc.h"
 #include "bme280.h"
 #include "ina219.h"
 #include "systick.h"
@@ -31,43 +32,6 @@ using I2C1 = I2C::Port<1>;
 
 namespace
 {
-
-enum class OutMode { TIME, VOLTAGE };
-
-OutMode nextMode(OutMode v)
-{
-    if (v == OutMode::TIME)
-        return OutMode::VOLTAGE;
-    return OutMode::TIME;
-}
-
-OutMode prevMode(OutMode v)
-{
-    if (v == OutMode::TIME)
-        return OutMode::VOLTAGE;
-    return OutMode::TIME;
-}
-/*
-std::string formatTime(const RTC::Device::Time& time)
-{
-    std::string res;
-    res += lz(time.hour);
-    res += ":";
-    res += lz(time.minute);
-    return res;
-}
-
-std::string formatDate(const RTC::Device::Date& date)
-{
-    std::string res;
-    res += std::to_string(date.year + 2000);
-    res += "-";
-    res += lz(date.month);
-    res += "-";
-    res += lz(date.day);
-    return res;
-}
-*/
 
 struct BME280Data
 {
@@ -123,23 +87,6 @@ bool readINA219(INA219& sensor, INA219Data& data)
     data.charge = std::to_string(static_cast<unsigned>(ch));
     return true;
 }
-/*
-void showTime(Display& display, const Fonts& fonts, const RTC::Device::DateTime& dt)
-{
-    display.printAt(0, 0, fonts.big, formatTime(dt.time));
-    display.printAt(0, 22, fonts.tiny, formatDate(dt.date));
-}
-
-void showVoltage(Display& display, const Fonts& fonts, const INA219Data& data)
-{
-    display.printAt(0, 2,  fonts.tiny, data.v);
-    display.printAt(0, 12, fonts.tiny, data.c);
-    display.printAt(0, 22, fonts.tiny, data.charge);
-    display.printAt(45, 2,  fonts.tiny, "V");
-    display.printAt(45, 12, fonts.tiny, "A");
-    display.printAt(45, 22, fonts.tiny, "%");
-}
-*/
 
 }
 
@@ -148,26 +95,33 @@ int main()
     LSE::enable();
     SysClock::enable();
     SysTick::init(SysClock::AHBFreq * 1000); // MHz to ms
-    LED led;
-    Keyboard keyboard;
+    //LED led;
+    //Keyboard keyboard;
 
     MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
 
-    auto port = I2C1(SysClock::APB1Freq, 100000);
-    Display display(port, 0x3C);
-    display.init();
+    //auto port = I2C1(SysClock::APB1Freq, 100000);
+    ADC::init(ADC::PRE::DIV1);
+    ADC::setIntChannel(ADC::IntChannel::TSVREF);
+    auto adc = ADC::Device::create<ADC::ADC1>();
+    ADC::Config adcConfig;
+    adc.init(adcConfig);
+    adc.configureChannel(ADC::Channel::CHVREFINT, ADC::SamplingTime::CYC3);
+    //Display display(port, 0x3C);
+    //display.init();
     RTC::Device::init();
-    BME280 sensor1(port, 0x76);
-    sensor1.init();
+    //BME280 sensor1(port, 0x76);
+    //sensor1.init();
     //INA219 sensor2(port, 0x40);
     //sensor2.init();
 
-    Fonts fonts;
+    //Fonts fonts;
 
-    Screen::Main screen(display, fonts);
+    Screen screen(SysClock::APB1Freq);
 
-    Timer timer(std::chrono::seconds(1));
-    OutMode mode = OutMode::TIME;
+    screen.run();
+
+    /*Timer timer(std::chrono::seconds(1));
     for (;;) {
         const auto e = keyboard.get();
         if (e.ledAction)
@@ -175,10 +129,13 @@ int main()
         if (e.action)
         {
             const auto a = e.action.value();
-            if (a == Keyboard::Action::Plus)
-                screen.next();
-            else if (a == Keyboard::Action::Minus)
-                screen.prev();
+            using Action = Keyboard::Action;
+            switch (e.action.value())
+            {
+                case Action::Enter: runMenu(display, fonts, keyboard); break;
+                case Action::Plus:  view = nextView(view); break;
+                case Action::Minus: view = prevView(view); break;
+            };
         }
 
         if (timer.expired())
@@ -193,8 +150,8 @@ int main()
                 continue;
             }
 
-            screen.update({bmeData.h, bmeData.p, bmeData.t}, RTC::Device::get());
+            showMain(view, {bmeData.h, bmeData.p, bmeData.t}, RTC::Device::get());
         }
-    }
+    }*/
     return 0;
 }

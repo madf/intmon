@@ -1,5 +1,5 @@
 DEVICE = stm32f401cdu6
-OPTIMIZE = -Os -ggdb3
+OPTIMIZE = -O1 -ggdb3
 
 HARDWARE_FLAGS = -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
 
@@ -27,7 +27,7 @@ OBJDUMP = $(HOST)-objdump
 STRIP = $(HOST)-strip
 SIZE = $(HOST)-size
 
-SOURCES = vector_table.S startup.S sbrk.c syscalls.c main.cpp screen.cpp keyboard.cpp display.cpp rtc.cpp bme280.cpp ina219.cpp i2cdev.cpp i2c.cpp pwr.cpp fonts.cpp timer.cpp systick.cpp datetime.cpp utils.cpp
+SOURCES = vector_table.S startup.S sbrk.c syscalls.c main.cpp screen.cpp menu.cpp keyboard.cpp display.cpp rtc.cpp bme280.cpp ina219.cpp i2cdev.cpp i2c.cpp pwr.cpp fonts.cpp timer.cpp systick.cpp datetime.cpp utils.cpp
 
 SANITIZED_SOURCES = $(patsubst %.S,,$(SOURCES))
 

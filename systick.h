@@ -21,6 +21,8 @@ void init(uint32_t ticks);
 uint32_t getTick();
 
 void delayMS(unsigned ms);
+void delayUS(double ahbFreq, unsigned us);
+void delayUS(unsigned us);
 
 template <class Rep, class Period>
 inline

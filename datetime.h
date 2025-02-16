@@ -5,17 +5,17 @@
 
 struct Date
 {
-    uint16_t year;
-    uint8_t month;
-    uint8_t day;
+    uint16_t year = 0;
+    uint8_t month = 0;
+    uint8_t day   = 0;
 };
 
 struct Time
 {
     enum class Format : uint8_t { Short, Full };
-    uint8_t hour;
-    uint8_t minute;
-    uint8_t second;
+    uint8_t hour   = 0;
+    uint8_t minute = 0;
+    uint8_t second = 0;
 };
 
 struct DateTime

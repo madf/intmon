@@ -1,112 +1,51 @@
 #pragma once
 
+#include "display.h"
 #include "keyboard.h"
+#include "bme280.h"
+#include "i2c.h"
+#include "fonts.h"
+#include "rtc.h"
 #include "datetime.h"
+#include "timer.h"
 
 #include <cstdint>
 
-class Display;
-struct Fonts;
-
-namespace Screen
-{
-
-enum class EditRes : uint8_t { NotDone, Done };
-
-struct Base
+class Screen
 {
     public:
-        Base(Display& d, Fonts& f) : m_display(d), m_fonts(f) {}
+        Screen(double pFreq);
+        void run();
 
-    protected:
-        Display& m_display;
-        Fonts& m_fonts;
-};
+    private:
+        enum class View : uint8_t { DateTime = 0, Temp = 1, Press = 2, Hum = 3 };
 
-class Test : public Base
-{
-    public:
-        Test(Display& d, Fonts& f) : Base(d, f) {}
-
-        void update(const Keyboard::Event& e,
-                    bool menuState,
-                    bool plusState,
-                    bool minusState,
-                    bool escState);
-};
-
-class Main : public Base
-{
-    public:
         struct HPT
         {
-            uint32_t h;
-            uint32_t p;
-            int32_t t;
+            uint32_t h = 0;
+            uint32_t p = 0;
+            int32_t t  = 0;
         };
 
-        Main(Display& d, Fonts& f) : Base(d, f) {}
-        void update(const HPT& hpt, const DateTime& dt);
-        void next();
-        void prev();
+        using I2C1 = I2C::Port<1>;
 
-    private:
-        enum class State : uint8_t { DateTime = 0, Temp = 1, Press = 2, Hum = 3 };
+        View m_view = View::DateTime;
+        I2C1 m_port;
+        Display m_display;
+        Fonts m_fonts;
+        Keyboard m_keyboard;
+        BME280 m_sensor;
+        Timer m_timer;
 
-        State m_state = State::DateTime;
-        HPT m_hpt;
-        DateTime m_dt;
+        void runMenu();
+        void show(const HPT& hpt, const DateTime& dt);
+        void showDT(const DateTime& dt);
+        void showTemp(int32_t t);
+        void showPress(uint32_t p);
+        void showHum(uint32_t h);
+        void showCommon(const HPT& hpt);
+        void showBME280Failure();
 
-        void show();
-        void showDT();
-        void showTemp();
-        void showPress();
-        void showHum();
-        void showCommon();
+        void prevView();
+        void nextView();
 };
-
-class Menu : public Base
-{
-    public:
-        Menu(Display& d, Fonts& f) : Base(d, f) {}
-        void enter();
-        void next();
-        void prev();
-
-    private:
-        enum class State : uint8_t { EditDate = 0, EditTime = 1 };
-
-        State m_state = State::EditDate;
-};
-
-class EditDate : public Base
-{
-    public:
-        EditDate(Display& d, Fonts& f, const Date& dt) : Base(d, f), m_date(dt) {}
-        EditRes enter();
-        void plus();
-        void minus();
-
-    private:
-        enum class State : uint8_t { EditYear = 0, EditMonth = 1, EditDay = 2 };
-
-        State m_state = State::EditYear;
-        Date m_date;
-};
-
-class EditTime : public Base
-{
-    public:
-        EditTime(Display& d, Fonts& f, const Time& tm) : Base(d, f), m_time(tm) {}
-        EditRes enter();
-        void plus();
-        void minus();
-
-    private:
-        enum class State : uint8_t { EditHour = 0, EditMinute = 1 };
-
-        State m_state = State::EditHour;
-        Time m_time;
-};
-
-}

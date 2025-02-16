@@ -2,6 +2,7 @@
 
 bool Display::init()
 {
+
     return sendCommand(0xAE) // Turn off
 
         && sendCommand({0xA8, 0x1F}) // Multiplex ratio (HEIGHT - 1 = 32 - 1 = 0x20 - 1 = 0x1F)

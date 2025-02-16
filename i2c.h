@@ -42,7 +42,7 @@ template <>
 struct Pins<1>
 {
     using SDA = GPIO::Pin<'B', 7>;
-    using SCL = GPIO::Pin<'B', 6>;
+    using SCL = GPIO::Pin<'B', 8>;
     constexpr static uint8_t SDA_AF = 4;
     constexpr static uint8_t SCL_AF = 4;
 };
