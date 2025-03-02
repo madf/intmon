@@ -52,6 +52,24 @@ inline Type* const Regs = reinterpret_cast<Type*>(0x40012300);
 
 }
 
+struct Calibration
+{
+    int16_t tsCal1;
+    int16_t tsCal2;
+    int16_t cal;
+};
+
+inline
+Calibration readCalibration()
+{
+    const uint8_t* const base = reinterpret_cast<const uint8_t*>(0x1FFF7A2A);
+    Calibration res;
+    res.cal = (base[1] << 8) | base[0];
+    res.tsCal1 = (base[3] << 8) | base[2];
+    res.tsCal2 = (base[5] << 8) | base[4];
+    return res;
+}
+
 enum class PRE : uint8_t {
     DIV1 = 0,
     DIV2 = 1,
@@ -221,6 +239,21 @@ class Device
             setBit(&m_regs->CR2, BIT(30));
             waitBitOn(&m_regs->SR, BIT(1));
             return m_regs->DR & 0x0000FFFF;
+        }
+
+        uint32_t readVoltage(Channel ch, SamplingTime st, const Calibration& cal, uint32_t vRefInt, uint32_t q)
+        {
+            configureChannel(ch, st);
+            const uint32_t num = read() * cal.cal / vRefInt;
+            return q * 33 * num / 40950;
+        }
+
+        uint32_t readTemperature(SamplingTime st, const Calibration& cal, uint32_t vRefInt, int32_t q)
+        {
+            configureChannel(Channel::CHTEMP, st);
+            const int32_t t = static_cast<int32_t>(read()) * cal.cal - cal.tsCal1 * static_cast<int32_t>(vRefInt);
+            const int32_t res = q * 30 + q * 80 * t / (static_cast<int32_t>(vRefInt) * (cal.tsCal2 - cal.tsCal1));
+            return res;
         }
 
         void stop()

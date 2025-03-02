@@ -44,6 +44,12 @@ bool Device::init(const Config& config)
     setOutput(config.output);
     setPolarity(config.polarity);
 
+    if (!isBitSet(&Regs->ISR, BIT(4)))
+    {
+        setDateImpl(2000, 1, 1);
+        setTimeImpl(0, 0, 0);
+    }
+
     if (!exitInit())
         return false;
 
@@ -138,7 +144,7 @@ void Device::wpDisable()
 auto Device::getDate() -> Date
 {
     const auto dr = Regs->DR;
-    return {fromBCD(u8((dr & YEAR_MASK) >> 16)),
+    return {static_cast<uint16_t>(fromBCD(u8((dr & YEAR_MASK) >> 16)) + 2000),
             fromBCD(u8((dr & MONTH_MASK) >> 8)),
             fromBCD(u8(dr & DAY_MASK))};
 }
@@ -204,9 +210,9 @@ void Device::setDateImpl(uint16_t y, uint8_t m, uint8_t d)
 {
     const auto dr = (toBCD(static_cast<uint8_t>(y - 2000)) << 16) |
                     (toBCD(m) << 8)                               |
-                    toBCD(d);
-    clearBit(&Regs->DR, DATE_MASK);
-    setBit(&Regs->DR, dr);
+                    toBCD(d)                                      |
+                    0x00002000; // Week day
+    Regs->DR = dr;
 }
 
 void Device::setTimeImpl(uint8_t h, uint8_t m, uint8_t s)
@@ -214,6 +220,5 @@ void Device::setTimeImpl(uint8_t h, uint8_t m, uint8_t s)
     const auto tr = (toBCD(h) << 16) |
                     (toBCD(m) << 8)  |
                     toBCD(s);
-    clearBit(&Regs->TR, TIME_MASK);
-    setBit(&Regs->TR, tr);
+    Regs->TR = tr;
 }

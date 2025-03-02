@@ -83,15 +83,14 @@ void PortBase::reset()
 
 void PortBase::setFreq()
 {
-    const auto val = static_cast<uint8_t>(m_PFreq);
     clearBit(&m_regs->CR2, 0x0000003F);
-    setBit(&m_regs->CR2, val & 0x0000003F);
+    setBit(&m_regs->CR2, m_PFreq & 0x0000003F);
 }
 
 void PortBase::setTRise()
 {
     // Master/Sm
-    const auto val = static_cast<uint8_t>(m_PFreq) + 1;
+    const auto val = m_PFreq + 1;
     clearBit(&m_regs->TRISE, 0x0000003F);
     setBit(&m_regs->TRISE, val & 0x0000003F);
 }

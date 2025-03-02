@@ -31,7 +31,7 @@ void SysTick::delayMS(unsigned ms)
     while (s_ticks < until) (void) 0;
 }
 
-void SysTick::delayUS(double ahbFreq, unsigned us)
+void SysTick::delayUS(uint8_t ahbFreq, unsigned us)
 {
     const auto start = Regs->VAL;
     us = us % 1000;

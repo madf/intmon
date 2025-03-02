@@ -19,6 +19,7 @@ class Timer
         static void wait(std::chrono::duration<Rep, Period> d) { Timer(d).wait(); }
 
         void reset();
+        void expire();
         bool expired() const;
         void wait() const;
 

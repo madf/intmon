@@ -94,7 +94,7 @@ class Device
 
         static Date getDate();
         static Time getTime();
-        static DateTime get() { return {getDate(), getTime()}; }
+        static DateTime get() { auto tm = getTime(); return {getDate(), std::move(tm)}; } // Time must be read first
         static bool set(uint16_t y, uint8_t m, uint8_t d, uint8_t hh, uint8_t mm, uint8_t ss);
         static bool set(const DateTime& dt) { return set(dt.year(), dt.month(), dt.day(), dt.hour(), dt.minute(), dt.second()); }
         static bool setDate(uint16_t y, uint8_t m, uint8_t d);

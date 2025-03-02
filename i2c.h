@@ -68,7 +68,7 @@ struct Pins<3>
 class PortBase
 {
     public:
-        PortBase(uint8_t num, double pFreq, uint32_t speed)
+        PortBase(uint8_t num, uint8_t pFreq, uint32_t speed)
             : m_regs(getRegs(num)),
               m_num(num),
               m_PFreq(pFreq),
@@ -95,7 +95,7 @@ class PortBase
     private:
         Regs* m_regs;
         size_t m_num;
-        double m_PFreq;
+        uint8_t m_PFreq;
         uint32_t m_speed;
 
         void disable();
@@ -120,7 +120,7 @@ class Port : public PortBase
         using SDA = PinsDef::SDA;
         using SCL = PinsDef::SCL;
 
-        Port(double pFreq, uint32_t speed)
+        Port(uint8_t pFreq, uint32_t speed)
             : PortBase(num, pFreq, speed)
         {
             // GPIO

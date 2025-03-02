@@ -18,12 +18,6 @@ class Keyboard
         };
 
         Event get();
-        /*
-        bool enterState() const { return m_enterBtn.isPressed(); }
-        bool plusState() const { return m_plusBtn.isPressed(); }
-        bool minusState() const { return m_minusBtn.isPressed(); }
-        bool exitState() const { return m_exitBtn.isPressed(); }
-        */
 
     private:
         using EnterBtn  = Buttons::Button<GPIO::Pin<'B', 2>>;

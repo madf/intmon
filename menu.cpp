@@ -68,13 +68,16 @@ void Menu::run()
     {
         const auto e = m_keyboard.get();
         using Action = Keyboard::Action;
-        switch (e.action.value())
+        if (e.action)
         {
-            case Action::Enter: runEdit(); break;
-            case Action::Plus:  nextMenu(); show(); break;
-            case Action::Minus: prevMenu(); show(); break;
-            case Action::Exit:  return;
-        };
+            switch (e.action.value())
+            {
+                case Action::Enter: runEdit(); return;
+                case Action::Plus:  nextMenu(); show(); break;
+                case Action::Minus: prevMenu(); show(); break;
+                case Action::Exit:  return;
+            };
+        }
     }
 }
 
@@ -84,10 +87,10 @@ void Menu::show()
     switch (m_edit)
     {
         case Edit::Date:
-            m_display.printAt(75, 2, m_fonts.medium, "Set date");
+            m_display.printAt(15, 2, m_fonts.medium, "Set date");
             break;
         case Edit::Time:
-            m_display.printAt(75, 2, m_fonts.medium, "Set time");
+            m_display.printAt(15, 2, m_fonts.medium, "Set time");
             break;
     };
     m_display.update();
@@ -95,7 +98,7 @@ void Menu::show()
 
 void Menu::nextMenu()
 {
-    m_edit = static_cast<Edit>((std::to_underlying(m_edit) + 1) % 4);
+    m_edit = static_cast<Edit>((std::to_underlying(m_edit) + 1) % 2);
 }
 
 void Menu::prevMenu()
@@ -146,18 +149,21 @@ void Menu::runEditDate()
     {
         const auto e = m_keyboard.get();
         using Action = Keyboard::Action;
-        switch (e.action.value())
+        if (e.action)
         {
-            case Action::Enter:
-                if (part == DatePart::Day)
-                    done = true;
-                else
-                    part = next(part);
-                break;
-            case Action::Plus:  incPart(part, date); break;
-            case Action::Minus: decPart(part, date); break;
-            case Action::Exit:  return;
-        };
+            switch (e.action.value())
+            {
+                case Action::Enter:
+                    if (part == DatePart::Day)
+                        done = true;
+                    else
+                        part = next(part);
+                    break;
+                case Action::Plus:  incPart(part, date); break;
+                case Action::Minus: decPart(part, date); break;
+                case Action::Exit:  return;
+            };
+        }
         if (blink.expired())
         {
             showPart = !showPart;
@@ -199,18 +205,21 @@ void Menu::runEditTime()
     {
         const auto e = m_keyboard.get();
         using Action = Keyboard::Action;
-        switch (e.action.value())
+        if (e.action)
         {
-            case Action::Enter:
-                if (part == TimePart::Second)
-                    done = true;
-                else
-                    part = next(part);
-                break;
-            case Action::Plus:  incPart(part, time); break;
-            case Action::Minus: decPart(part, time); break;
-            case Action::Exit:  return;
-        };
+            switch (e.action.value())
+            {
+                case Action::Enter:
+                    if (part == TimePart::Second)
+                        done = true;
+                    else
+                        part = next(part);
+                    break;
+                case Action::Plus:  incPart(part, time); break;
+                case Action::Minus: decPart(part, time); break;
+                case Action::Exit:  return;
+            };
+        }
         if (blink.expired())
         {
             showPart = !showPart;
@@ -262,6 +271,6 @@ void Menu::showEditTime(const Time& tm, TimePart part, bool showPart)
             v += lz(tm.second);
     }
     else
-        m_display.printAt(0, 0, m_fonts.big, toString(tm));
+        m_display.printAt(0, 0, m_fonts.big, toString(tm, Time::Format::Full));
     m_display.update();
 }
