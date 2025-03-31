@@ -64,6 +64,13 @@ void Screen::run()
                 continue;
             }
 
+            if (m_adcData.batPerc() < 0)
+            {
+                m_display.clear();
+                showDeadBat();
+                return;
+            }
+
             m_dt = RTC::Device::get();
             show();
         }
@@ -78,13 +85,13 @@ void Screen::runMenu()
 
 void Screen::nextView()
 {
-    m_view = static_cast<View>((std::to_underlying(m_view) + 1) % 5);
+    m_view = static_cast<View>((std::to_underlying(m_view) + 1) % 7);
 }
 
 void Screen::prevView()
 {
     if (m_view == View::DateTime)
-        m_view = View::ADC;
+        m_view = View::DeadBat;
     else
         m_view = static_cast<View>(std::to_underlying(m_view) - 1);
 }
@@ -92,14 +99,17 @@ void Screen::prevView()
 void Screen::show()
 {
     m_display.clear();
-    showCommon();
+    if (m_view != View::DeadBat)
+        showCommon();
     switch (m_view)
     {
         case View::DateTime: showDT(); break;
         case View::Temp:     showTemp(); break;
         case View::Press:    showPress(); break;
         case View::Hum:      showHum(); break;
+        case View::State:    showState(); break;
         case View::ADC:      showADC(); break;
+        case View::DeadBat:  showDeadBat(); break;
     };
     m_display.update();
 }
@@ -128,17 +138,30 @@ void Screen::showHum()
     m_display.printAt(40, 0, m_fonts.big, "%");
 }
 
+void Screen::showState()
+{
+    const auto temp = std::to_string(m_adcData.t / 10) + "." + std::to_string(m_adcData.t % 10);
+    m_display.printAt(4, 2, m_fonts.tiny, temp);
+    m_display.printAt(40, 2, m_fonts.tiny, "C");
+    const auto perc = m_adcData.batPerc();
+    m_display.rect(2, 14, 60, 18, Display::Color::White);
+    m_display.bar(62, 20, 3, 6, Display::Color::White);
+    m_display.bar(3, 15, 58 * perc / 100, 16, Display::Color::White);
+    m_display.printAt(14, 19, m_fonts.tiny, std::to_string(perc), 1, Display::NoBG);
+    m_display.printAt(14 + m_fonts.tiny.width() * 4, 19, m_fonts.tiny, "%", 1, Display::NoBG);
+}
+
 void Screen::showADC()
 {
-    const auto vref = std::to_string(m_adcData.vref / 100) + "." + lz(m_adcData.vref % 100);
-    m_display.printAt(0, 2, m_fonts.tiny, vref);
-    m_display.printAt(40, 2, m_fonts.tiny, "V");
     const auto temp = std::to_string(m_adcData.t / 10) + "." + std::to_string(m_adcData.t % 10);
-    m_display.printAt(0, 12, m_fonts.tiny, temp);
-    m_display.printAt(40, 12, m_fonts.tiny, "C");
-    const auto volt = std::to_string(m_adcData.v / 100) + "." + lz(m_adcData.v % 100);
-    m_display.printAt(0, 22, m_fonts.tiny, volt);
-    m_display.printAt(40, 22, m_fonts.tiny, "V");
+    m_display.printAt(0, 2, m_fonts.tiny, temp);
+    m_display.printAt(40, 2, m_fonts.tiny, "C");
+    const auto v = m_adcData.vbat();
+    const auto volt = std::to_string(v / 100) + "." + lz(v % 100);
+    m_display.printAt(0, 12, m_fonts.tiny, volt);
+    m_display.printAt(40, 12, m_fonts.tiny, "V");
+    m_display.printAt(0, 22, m_fonts.tiny, std::to_string(m_adcData.batPerc()));
+    m_display.printAt(40, 22, m_fonts.tiny, "%");
 }
 
 void Screen::showCommon()
@@ -167,6 +190,13 @@ void Screen::showADCFailure()
     m_display.printAt(75, 2,  m_fonts.tiny, "ADC");
     m_display.printAt(75, 12, m_fonts.tiny, "failure");
     m_display.update();
+}
+
+void Screen::showDeadBat()
+{
+    m_display.rect(34, 7, 60, 18, Display::Color::White);
+    m_display.bar(94, 13, 3, 6, Display::Color::White);
+    m_display.line(49, 31, 79, 0, Display::Color::White);
 }
 
 bool Screen::readBME280()

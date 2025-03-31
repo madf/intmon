@@ -16,6 +16,12 @@ class Display
             Black,
             White
         };
+        enum class Background
+        {
+            Yes,
+            No
+        };
+        static constexpr auto NoBG = Background::No;
 
         template <typename P>
         Display(P& port, uint8_t address)
@@ -34,12 +40,15 @@ class Display
 
         void clear();
 
-        bool printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace = 1);
+        bool printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace = 1) { return printAt(x, y, font, text, interCharSpace, Background::Yes); }
+        bool printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace, Background bg);
         bool printCharAt(uint8_t x, uint8_t y, const Font& font, char c);
         bool bar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Color color);
         bool hline(uint8_t x, uint8_t y, uint8_t l, Color color);
         bool vline(uint8_t x, uint8_t y, uint8_t l, Color color);
         bool rect(uint8_t x, uint8_t y, uint8_t l, uint8_t h, Color color);
+        bool line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, Color color);
+        bool point(uint8_t x, uint8_t y, Color color);
 
     private:
         I2C::Device m_dev;

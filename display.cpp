@@ -16,13 +16,13 @@ bool Display::init()
         && sendCommand(0xA0) // Remap?
         && sendCommand(0xC0) // Scan inc?
         && sendCommand({0xDA, 0x02}) // Pins config?
-        && sendCommand({0x81, 0x8F}) // Contrast
+        && sendCommand({0x81, 0x20}) // Contrast
 
         && sendCommand(0xA4) // Resume to RAM
         && sendCommand(0xA6) // Normal display, 0xA7 - inverted
 
         && sendCommand({0xD5, 0x80}) // Display refresh freq
-        && sendCommand({0xD9, 0xF1}) // ?
+        && sendCommand({0xD9, 0x11}) // Pre-charge period (phase 1 and 2)
         && sendCommand({0xDB, 0x20}) // Voltage level?
 
         //&& sendCommand(0x2E) // Stop scroll
@@ -52,12 +52,12 @@ void Display::clear()
             v = 0;
 }
 
-bool Display::printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace)
+bool Display::printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace, Background bg)
 {
     auto pos = x;
     for (auto c : text)
     {
-        if (pos != x)
+        if (bg == Background::Yes && pos != x)
         {
             if (!bar(pos + font.width(), y, interCharSpace, font.height(), Color::Black))
                 return false;
@@ -83,11 +83,7 @@ bool Display::printCharAt(uint8_t x, uint8_t y, const Font& font, char c)
         {
             if (((line << j) & 0x8000) == 0x8000)
             {
-                p[x + j] |= 1 << offset;
-            }
-            else
-            {
-                p[x + j] &= ~(1 << offset);
+                p[x + j] ^= 1 << offset;
             }
         }
     }
@@ -157,4 +153,47 @@ bool Display::rect(uint8_t x, uint8_t y, uint8_t l, uint8_t h, Color color)
            hline(x, y + h - 1, l, color) &&
            vline(x, y, h, color) &&
            vline(x + l - 1, y, h, color);
+}
+
+bool Display::point(uint8_t x, uint8_t y, Color color)
+{
+    if (x > 127 || y > 32)
+        return false;
+    auto& p = m_pages[y / 8];
+    const auto offset = y % 8;
+    if (color == Color::White)
+        p[x] |= 1 << offset;
+    else
+        p[x] &= ~(1 << offset);
+    return true;
+}
+
+bool Display::line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, Color color)
+{
+    auto dx = std::abs(x1 - x0);
+    auto sx = x0 < x1 ? 1 : -1;
+    auto dy = -std::abs(y1 - y0);
+    auto sy = y0 < y1 ? 1 : -1;
+    auto error = dx + dy;
+
+    while (true)
+    {
+        if (!point(x0, y0, color))
+            return false;
+        auto e2 = 2 * error;
+        if (e2 >= dy)
+        {
+            if (x0 == x1) break;
+            error = error + dy;
+            x0 = x0 + sx;
+        }
+        if (e2 <= dx)
+        {
+            if (y0 == y1) break;
+            error = error + dx;
+            y0 = y0 + sy;
+        }
+    }
+
+    return true;
 }

@@ -19,7 +19,7 @@ class Screen
         void run();
 
     private:
-        enum class View : uint8_t { DateTime = 0, Temp = 1, Press = 2, Hum = 3, ADC = 4 };
+        enum class View : uint8_t { DateTime = 0, Temp = 1, Press = 2, Hum = 3, State = 4, ADC = 5, DeadBat = 6 };
 
         struct HPT
         {
@@ -33,6 +33,8 @@ class Screen
             uint32_t vref = 0;
             uint32_t t = 0;
             uint32_t v = 0;
+            uint32_t vbat() const { return v * 2; }
+            int32_t batPerc() const { return (vbat() - 300) * 5 / 6;  }
         };
 
         using I2C1 = I2C::Port<1>;
@@ -56,10 +58,12 @@ class Screen
         void showTemp();
         void showPress();
         void showHum();
+        void showState();
         void showADC();
         void showCommon();
         void showBME280Failure();
         void showADCFailure();
+        void showDeadBat();
 
         void prevView();
         void nextView();

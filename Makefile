@@ -1,7 +1,8 @@
 DEVICE = stm32f401cdu6
 OPTIMIZE = -O1 -ggdb3
 
-HARDWARE_FLAGS = -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
+#HARDWARE_FLAGS = -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
+HARDWARE_FLAGS = -mcpu=cortex-m4 -mthumb
 
 WARNING_FLAGS  = -W -Wall -Wextra -Wundef -Wshadow -Wdouble-promotion \
 		 -Wformat-truncation -Wconversion
