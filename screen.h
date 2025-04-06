@@ -33,7 +33,7 @@ class Screen
             uint32_t vref = 0;
             uint32_t t = 0;
             uint32_t v = 0;
-            uint32_t vbat() const { return v * 2; }
+            int32_t vbat() const { return v * 2; }
             int32_t batPerc() const { return (vbat() - 300) * 5 / 6;  }
         };
 

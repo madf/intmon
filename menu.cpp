@@ -269,6 +269,7 @@ void Menu::showEditTime(const Time& tm, TimePart part, bool showPart)
             v += lz(tm.minute) + ":";
         if (part != TimePart::Second)
             v += lz(tm.second);
+        m_display.printAt(0, 0, m_fonts.big, v);
     }
     else
         m_display.printAt(0, 0, m_fonts.big, toString(tm, Time::Format::Full));

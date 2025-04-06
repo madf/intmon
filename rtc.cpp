@@ -27,10 +27,13 @@ constexpr uint32_t MINUTE_MASK = 0x00007F00;
 constexpr uint32_t SECOND_MASK = 0x0000007F;
 constexpr uint32_t TIME_MASK   = HOUR_MASK | MINUTE_MASK | SECOND_MASK;
 
+constexpr uint32_t RTC_INITIALIZATION_MARK = 0xDEADBEEF;
+
 }
 
 bool Device::init(const Config& config)
 {
+    auto* regs = Regs;
     setClockSource(config.clockSource);
     enable();
 
@@ -44,10 +47,11 @@ bool Device::init(const Config& config)
     setOutput(config.output);
     setPolarity(config.polarity);
 
-    if (!isBitSet(&Regs->ISR, BIT(4)))
+    if (Regs->BKPR[0] != RTC_INITIALIZATION_MARK)
     {
         setDateImpl(2000, 1, 1);
         setTimeImpl(0, 0, 0);
+        Regs->BKPR[0] = RTC_INITIALIZATION_MARK;
     }
 
     if (!exitInit())
@@ -73,12 +77,12 @@ void Device::setClockSource(ClockSource cs)
 {
     // Store old register state
     // After resset register goes to 0x00000000
-    const auto old = RCC::Regs->BDCR & ~RTC_CLOCK_SELECTION_MASK;
+    //const auto old = RCC::Regs->BDCR & ~RTC_CLOCK_SELECTION_MASK;
     // Reset backup domain
-    setBit(&RCC::Regs->BDCR, BIT(16));
-    clearBit(&RCC::Regs->BDCR, BIT(16));
+    //setBit(&RCC::Regs->BDCR, BIT(16));
+    //clearBit(&RCC::Regs->BDCR, BIT(16));
     // Restore register state
-    RCC::Regs->BDCR = old;
+    //RCC::Regs->BDCR = old;
     // If LSE was enabled, wait its activation
     if (isBitSet(&RCC::Regs->BDCR, BIT(0))) // If LSE was enabled
         waitBitOn(&RCC::Regs->BDCR, BIT(1)); // Wait LSE

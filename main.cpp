@@ -89,8 +89,8 @@ extern "C" void SPI4_IRQHandler() { while (true); }
 using MCO1 = MCO::Port<1>;
 using HSE = Clocks::HSE<25.0>;
 using LSE = Clocks::LSE<32.768>;
-using PLL = Clocks::PLL<HSE, 25, 336, 4, 7>;
-using SysClock = Clocks::SysClock<PLL, Clocks::HPRE::DIV2, Clocks::PPRE::DIV2, Clocks::PPRE::DIV1>;
+using PLL = Clocks::PLL<HSE, 15, 144, 4, 5>;
+using SysClock = Clocks::SysClock<PLL, Clocks::HPRE::DIV4, Clocks::PPRE::DIV2, Clocks::PPRE::DIV1>;
 using ADCInput = GPIO::Pin<'A', 0>;
 
 int main()

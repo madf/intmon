@@ -2,7 +2,6 @@
 
 #include "datetime.h"
 
-#include <array>
 #include <cstdint>
 
 namespace RTC
@@ -29,7 +28,8 @@ struct Type
     volatile uint32_t TAFCR;                // Tamper and alternate function configuration
     volatile uint32_t ALRMASSR;             // Alarm A subsecond
     volatile uint32_t ALRMBSSR;             // Alarm B subsecond
-    volatile std::array<uint32_t, 20> BKPR; // Backup 0-19
+    volatile uint32_t Reserved;             // Reserved
+    volatile uint32_t BKPR[20];             // Backup 0-19
 };
 
 inline Type* const Regs = reinterpret_cast<Type*>(0x40002800);
