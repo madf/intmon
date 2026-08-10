@@ -10,6 +10,7 @@
 #include "bme280.h"
 #include "ina219.h"
 #include "systick.h"
+#include "pwr.h"
 #include "timer.h"
 #include "clocks.h"
 #include "utils.h"
@@ -98,8 +99,9 @@ int main()
     LSE::enable();
     SysClock::enable();
     SysTick::init(SysClock::AHBFreq * 1000); // MHz to ms
+    PWR::Interface::enablePVD(PWR::Interface::PVDLevel::L29);
 
-    MCO1::enable(MCO1::Source::HSE, MCO::PRE::DIV5);
+    MCO1::enable(MCO1::Source::PLL, MCO::PRE::DIV5);
 
     ADC::init(ADC::PRE::DIV1);
     ADC::setIntChannel(ADC::IntChannel::TSVREF);

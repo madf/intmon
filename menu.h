@@ -15,7 +15,7 @@ class Menu
 
         void run();
     private:
-        enum class Edit : uint8_t { Date = 0, Time = 1 };
+        enum class Edit : uint8_t { Date = 0, Time = 1, BOR = 2, Reset = 3 };
         enum class DatePart : uint8_t { Year = 0, Month = 1, Day = 2 };
         enum class TimePart : uint8_t { Hour = 0, Minute = 1, Second = 2 };
         Edit m_edit = Edit::Date;
@@ -26,9 +26,13 @@ class Menu
         void show();
         void nextMenu();
         void prevMenu();
-        void runEdit();
+        void runImpl();
         void runEditDate();
         void runEditTime();
+        void runSetBOR();
+        void runReset();
         void showEditDate(const Date& dt, DatePart part, bool showPart);
         void showEditTime(const Time& tm, TimePart part, bool showPart);
+        void showSetBOR();
+        void showReset();
 };

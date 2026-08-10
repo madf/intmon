@@ -19,7 +19,7 @@ class Screen
         void run();
 
     private:
-        enum class View : uint8_t { DateTime = 0, Temp = 1, Press = 2, Hum = 3, State = 4, ADC = 5, DeadBat = 6 };
+        enum class View : uint8_t { DateTime = 0, Temp = 1, Press = 2, Hum = 3, State = 4, ADC = 5, PM = 6 };
 
         struct HPT
         {
@@ -51,6 +51,7 @@ class Screen
         ADCData m_adcData;
         DateTime m_dt;
         Timer m_timer;
+        Timer m_deadTimer;
 
         void runMenu();
         void show();
@@ -60,6 +61,7 @@ class Screen
         void showHum();
         void showState();
         void showADC();
+        void showPM();
         void showCommon();
         void showBME280Failure();
         void showADCFailure();

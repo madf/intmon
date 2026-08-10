@@ -2,6 +2,7 @@
 
 #include "rcc.h"
 #include "pwr.h"
+#include "field.h"
 #include "utils.h"
 
 #include <chrono>
@@ -18,56 +19,45 @@
 namespace Clocks
 {
 
-template <volatile uint32_t (RCC::Type::* Reg), uint32_t OnBit, uint32_t ReadyBit>
+template <typename OnField, typename ReadyField>
 struct Base
 {
-    static constexpr auto ON = OnBit;
-    static constexpr auto READY = ReadyBit;
-    using BaseType = Base<Reg, OnBit, ReadyBit>;
+    static_assert(isFlagFieldV<OnField>, "OnField must be a single-bit field");
+    static_assert(isFlagFieldV<ReadyField>, "ReadyField must be a single-bit field");
+    using BaseType = Base<OnField, ReadyField>;
 
     static bool isReady()
     {
-        return isBitSet(&(RCC::Regs->*Reg), ReadyBit);
+        return ReadyField::isSet();
     }
 
     template <class Rep, class Period>
     static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
-        setBit(&(RCC::Regs->*Reg), OnBit);
-        return waitBitOn(&(RCC::Regs->*Reg), ReadyBit, timeout);
+        OnField::set();
+        return ReadyField::waitOn(timeout);
     }
 
     template <class Rep, class Period>
     static bool disable(std::chrono::duration<Rep, Period> timeout)
     {
-        clearBit(&(RCC::Regs->*Reg), OnBit);
-        return waitBitOff(&(RCC::Regs->*Reg), ReadyBit, timeout);
+        OnField::clear();
+        return ReadyField::waitOff(timeout);
     }
 
     static bool isEnabled()
     {
-        return isBitSet(&(RCC::Regs->*Reg), OnBit);
+        return OnField::isSet();
     }
 };
 
-using HSIBase = Base<&RCC::Type::CR, BIT(0) /*on/off*/, BIT(1) /*ready*/>;
-
 template <double F = 16.0>
-struct HSI : HSIBase
+struct HSI : Base<RCC::HSION, RCC::HSIRDY>
 {
     static constexpr auto freq = F;
     static constexpr auto timeout = std::chrono::milliseconds(2);
-
-    static bool enable()
-    {
-        return HSIBase::enable(timeout);
-    }
-
-    static bool disable()
-    {
-        return HSIBase::disable(timeout);
-    }
 };
+
 
 template <typename T>
 struct isHSI : std::false_type {};
@@ -76,24 +66,17 @@ template <double F>
 struct isHSI<HSI<F>> : std::true_type {};
 
 template <typename T>
-inline constexpr bool isHSI_v = isHSI<T>::value;
-
-using HSEBase = Base<&RCC::Type::CR, BIT(16) /*on/off*/, BIT(17) /*ready*/>;
+inline constexpr bool isHSIV = isHSI<T>::value;
 
 template <double F>
-struct HSE : HSEBase
+struct HSE : Base<RCC::HSEON, RCC::HSERDY>
 {
     static constexpr auto freq = F;
     static constexpr auto timeout = std::chrono::milliseconds(100);
 
     static bool enable()
     {
-        return HSEBase::enable(timeout);
-    }
-
-    static bool disable()
-    {
-        return HSEBase::disable(timeout);
+        return BaseType::enable(timeout);
     }
 };
 
@@ -104,29 +87,21 @@ template <double F>
 struct isHSE<HSE<F>> : std::true_type {};
 
 template <typename T>
-inline constexpr bool isHSE_v = isHSE<T>::value;
-
-using LSIBase = Base<&RCC::Type::CSR, BIT(0) /*on/off*/, BIT(1) /*ready*/>;
+inline constexpr bool isHSEV = isHSE<T>::value;
 
 template <double F = 32.0>
-struct LSI : LSIBase
+struct LSI : Base<RCC::LSION, RCC::LSIRDY>
 {
     static constexpr auto freq = F;
     static constexpr auto timeout = std::chrono::milliseconds(2);
-
-    static bool enable()
-    {
-        return LSIBase::enable(timeout);
-    }
-
-    static bool disable()
-    {
-        return LSIBase::disable(timeout);
-    }
 };
 
-struct LSEBase : Base<&RCC::Type::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/>
+template <double F>
+struct LSE : Base<RCC::LSEON, RCC::LSERDY>
 {
+    static constexpr auto freq = F;
+    static constexpr auto timeout = std::chrono::milliseconds(5000);
+
     template <class Rep, class Period>
     static bool enable(std::chrono::duration<Rep, Period> timeout)
     {
@@ -136,22 +111,10 @@ struct LSEBase : Base<&RCC::Type::BDCR, BIT(0) /*on/off*/, BIT(1) /*ready*/>
             return false;
         return BaseType::enable(timeout);
     }
-};
-
-template <double F>
-struct LSE : LSEBase
-{
-    static constexpr auto freq = F;
-    static constexpr auto timeout = std::chrono::milliseconds(5000);
 
     static bool enable()
     {
-        return LSEBase::enable(timeout);
-    }
-
-    static bool disable()
-    {
-        return LSEBase::disable(timeout);
+        return enable(timeout);
     }
 };
 
@@ -168,7 +131,7 @@ template <double F>
 struct isRTCInput<HSE<F>> : std::true_type {};
 
 template <typename T>
-inline constexpr bool isRTCInput_v = isRTCInput<T>::value;
+inline constexpr bool isRTCInputV = isRTCInput<T>::value;
 
 template <typename T>
 struct isPLLInput : std::false_type {};
@@ -180,14 +143,12 @@ template <double F>
 struct isPLLInput<HSE<F>> : std::true_type {};
 
 template <typename T>
-inline constexpr bool isPLLInput_v = isPLLInput<T>::value;
-
-using PLLBase = Base<&RCC::Type::CR, BIT(24) /*on/off*/, BIT(25) /*ready*/>;
+inline constexpr bool isPLLInputV = isPLLInput<T>::value;
 
 template <typename I, uint8_t M, uint16_t N, uint8_t P, uint8_t Q>
-struct PLL : PLLBase
+struct PLL : Base<RCC::PLLON, RCC::PLLRDY>
 {
-    static_assert(isPLLInput_v<I>, "Not a PLL input clock");
+    static_assert(isPLLInputV<I>, "Not a PLL input clock");
     static_assert(Q > 1 && Q < 16, "Q must be in [2, 15] range");
     static_assert(P / 2 > 0 && P / 2 < 5, "P must be exactly one of [2, 4, 6, 8]");
     static_assert(N > 1 && N < 433, "N must be in [2, 433] range");
@@ -214,21 +175,16 @@ struct PLL : PLLBase
             return false;
 
         BaseType::disable(timeout);
-        clearBit(&RCC::Regs->PLLCFGR, 0x0F << 24);
-        setBit(&RCC::Regs->PLLCFGR, q << 24);
 
-        clearBit(&RCC::Regs->PLLCFGR, BIT(22));
-        if constexpr (isHSE_v<Input>)
-            setBit(&RCC::Regs->PLLCFGR, BIT(22));
+        RCC::PLLQ::write(q);
+        if constexpr (isHSEV<Input>)
+            RCC::PLLSRC::set();
+        else
+            RCC::PLLSRC::clear();
 
-        clearBit(&RCC::Regs->PLLCFGR, 0x03 << 16);
-        setBit(&RCC::Regs->PLLCFGR, (p / 2 - 1) << 16);
-
-        clearBit(&RCC::Regs->PLLCFGR, 0x01FF << 6);
-        setBit(&RCC::Regs->PLLCFGR, n << 6);
-
-        clearBit(&RCC::Regs->PLLCFGR, 0x3F);
-        setBit(&RCC::Regs->PLLCFGR, m);
+        RCC::PLLP::write(p / 2 - 1);
+        RCC::PLLN::write(n);
+        RCC::PLLM::write(m);
 
         return BaseType::enable(timeout);
     }
@@ -246,7 +202,7 @@ template <typename I, uint8_t M, uint16_t N, uint8_t P, uint8_t Q>
 struct isPLL<PLL<I, M, N, P, Q>> : std::true_type {};
 
 template <typename T>
-inline constexpr bool isPLL_v = isPLL<T>::value;
+inline constexpr bool isPLLV = isPLL<T>::value;
 
 template <typename T>
 struct isSysClockInput : std::false_type {};
@@ -261,14 +217,14 @@ template <typename I, uint8_t M, uint16_t N, uint8_t P, uint8_t Q>
 struct isSysClockInput<PLL<I, M, N, P, Q>> : std::true_type {};
 
 template <typename T>
-inline constexpr bool isSysClockInput_v = isSysClockInput<T>::value;
+inline constexpr bool isSysClockInputV = isSysClockInput<T>::value;
 
 template <typename I>
 struct SysClockBase
 {
     using Input = I;
 
-    static_assert(isSysClockInput_v<Input>, "SysClock input must be either HSI, HSE or PLL");
+    static_assert(isSysClockInputV<Input>, "SysClock input must be either HSI, HSE or PLL");
 
     static constexpr double freq = Input::freq;
 
@@ -283,7 +239,8 @@ struct SysClockBase
         if (!Input::enable(timeout))
             return false;
 
-        PWR::Interface::setVoltageScalingMode(2);
+        PWR::Interface::setVoltageScalingMode(1);
+        return true;
     }
 
     static bool enable()
@@ -376,34 +333,30 @@ struct SysClock : SysClockBase<I>
             return false;
 
         // Set APBx prescalers to max value to not exceed frequencies accidentally during configuration
-        setBit(&RCC::Regs->CFGR, 0x07 << 10); // Set APB1 prescaler to 16
-        setBit(&RCC::Regs->CFGR, 0x07 << 13); // Set APB2 prescaler to 16
+        RCC::PPRE1::write(0x07); // Set APB1 prescaler to 16
+        RCC::PPRE2::write(0x07); // Set APB2 prescaler to 16
 
         // Set AHB prescaler
-        clearBit(&RCC::Regs->CFGR, 0x0F << 4);
-        setBit(&RCC::Regs->CFGR, HPREBits(AHBDiv) << 4);
+        RCC::HPRE::write(HPREBits(AHBDiv));
 
         // Set clock source
         uint8_t inputClockCode = 0x00; // HSI is default, 00
-        if constexpr (isHSE_v<Input>)
+        if constexpr (isHSEV<Input>)
             inputClockCode = 0x01; // HSE is 01
-        else if constexpr (isPLL_v<Input>)
+        else if constexpr (isPLLV<Input>)
             inputClockCode = 0x02; // PLL is 10
         // 11 is not applicable
-        clearBit(&RCC::Regs->CFGR, 0x03);
-        setBit(&RCC::Regs->CFGR, inputClockCode);
+        RCC::SW::write(inputClockCode);
 
         // Verify clock source
-        if (!waitBitOn(&RCC::Regs->CFGR, inputClockCode << 2, timeout))
+        Timer timer(timeout);
+        while (!timer.expired() && RCC::SWS::read() != inputClockCode)
+            asm("nop");
+        if (RCC::SWS::read() != inputClockCode)
             return false;
 
-        // Set APB1 prescaler
-        clearBit(&RCC::Regs->CFGR, 0x03 << 10);
-        setBit(&RCC::Regs->CFGR, PPREBits(APB1Div) << 10);
-
-        // Set APB2 prescaler
-        clearBit(&RCC::Regs->CFGR, 0x03 << 13);
-        setBit(&RCC::Regs->CFGR, PPREBits(APB2Div) << 10);
+        RCC::PPRE1::write(PPREBits(APB1Div)); // Set APB1 prescaler
+        RCC::PPRE2::write(PPREBits(APB2Div)); // Set APB2 prescaler
 
         return true;
     }

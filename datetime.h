@@ -1,6 +1,7 @@
 #pragma once
 
-#include <string>
+#include "fstring.h"
+
 #include <cstdint>
 
 struct Date
@@ -32,23 +33,18 @@ struct DateTime
     auto second() const { return time.second; }
 };
 
-std::string toString(const Date& d);
-std::string toString(const Time& t, Time::Format f);
+FString<10> toString(const Date& d);
+void toStringAt(const Date& d, char* pos);
+FString<5> toString(const Time& t);
+void toStringAt(const Time& t, char* pos);
+FString<8> toStringFull(const Time& t);
 
 inline
-std::string toString(const Time& t)
+FString<16> toString(const DateTime& dt)
 {
-    return toString(t, Time::Format::Short);
-}
-
-inline
-std::string toString(const DateTime& dt)
-{
-    return toString(dt.date) + " " + toString(dt.time, Time::Format::Full);
-}
-
-inline
-std::string toString(const DateTime& dt, Time::Format f)
-{
-    return toString(dt.date) + " " + toString(dt.time, f);
+    FString<16> res;
+    toStringAt(dt.date, res.data());
+    toStringAt(dt.time, &res[12]);
+    res[11] = ' ';
+    return res;
 }

@@ -2,6 +2,8 @@
 
 #include "menu.h"
 #include "clocks.h"
+#include "pwr.h"
+#include "flash.h"
 
 namespace
 {
@@ -19,7 +21,8 @@ Screen::Screen(uint8_t pFreq)
       m_sensor(m_port, 0x76),
       m_adc(ADC::Device::create<ADC::ADC1>()),
       m_cal(ADC::readCalibration()),
-      m_timer(std::chrono::seconds(1))
+      m_timer(std::chrono::seconds(1)),
+      m_deadTimer(std::chrono::seconds(10))
 {
     m_display.init();
     m_sensor.init();
@@ -66,9 +69,17 @@ void Screen::run()
 
             if (m_adcData.batPerc() < 0)
             {
-                m_display.clear();
-                showDeadBat();
-                return;
+                if (m_deadTimer.expired())
+                {
+                    m_display.clear();
+                    showDeadBat();
+                    m_display.update();
+                    return;
+                }
+            }
+            else
+            {
+                m_deadTimer.reset();
             }
 
             m_dt = RTC::Device::get();
@@ -91,7 +102,7 @@ void Screen::nextView()
 void Screen::prevView()
 {
     if (m_view == View::DateTime)
-        m_view = View::DeadBat;
+        m_view = View::PM;
     else
         m_view = static_cast<View>(std::to_underlying(m_view) - 1);
 }
@@ -99,8 +110,7 @@ void Screen::prevView()
 void Screen::show()
 {
     m_display.clear();
-    if (m_view != View::DeadBat)
-        showCommon();
+    showCommon();
     switch (m_view)
     {
         case View::DateTime: showDT(); break;
@@ -109,7 +119,7 @@ void Screen::show()
         case View::Hum:      showHum(); break;
         case View::State:    showState(); break;
         case View::ADC:      showADC(); break;
-        case View::DeadBat:  showDeadBat(); break;
+        case View::PM:       showPM(); break;
     };
     m_display.update();
 }
@@ -140,8 +150,8 @@ void Screen::showHum()
 
 void Screen::showState()
 {
-    const auto temp = std::to_string(m_adcData.t / 10) + "." + std::to_string(m_adcData.t % 10);
-    m_display.printAt(4, 2, m_fonts.tiny, temp);
+    const auto temp = FSNum<uint8_t>(m_adcData.t / 10) + FSLit(".") + FSNum<uint8_t>(m_adcData.t % 10);
+    m_display.printAt(4, 2, m_fonts.tiny, temp, 1, Display::NoBG);
     m_display.printAt(40, 2, m_fonts.tiny, "C");
     const auto perc = m_adcData.batPerc();
     m_display.rect(2, 14, 60, 18, Display::Color::White);
@@ -153,15 +163,75 @@ void Screen::showState()
 
 void Screen::showADC()
 {
-    const auto temp = std::to_string(m_adcData.t / 10) + "." + std::to_string(m_adcData.t % 10);
+    FString<4> temp;
+    if (m_adcData.t > 999)
+        temp = " err";
+    else
+    {
+        lzAt(m_adcData.t / 10, &temp[0]);
+        temp[2] = '.';
+        temp[3] = '0' + m_adcData.t % 10;
+    }
     m_display.printAt(0, 2, m_fonts.tiny, temp);
     m_display.printAt(40, 2, m_fonts.tiny, "C");
     const auto v = m_adcData.vbat();
-    const auto volt = std::to_string(v / 100) + "." + lz(v % 100);
+    FString<4> volt;
+    if (v > 999)
+        volt = " err";
+    else
+    {
+        volt[0] = '0' + (v / 100) % 10;
+        volt[1] = '.';
+        lzAt(v % 100, &volt[2]);
+    }
     m_display.printAt(0, 12, m_fonts.tiny, volt);
     m_display.printAt(40, 12, m_fonts.tiny, "V");
-    m_display.printAt(0, 22, m_fonts.tiny, std::to_string(m_adcData.batPerc()));
+    FString<3> perc(3, ' ');
+    auto p = m_adcData.batPerc();
+    if (p > 100 || p < -99)
+        perc = "err";
+    else
+    {
+        if (p == 100)
+            perc = "100";
+        else
+        {
+            if (p < 0)
+            {
+                perc[0] = '-';
+                p = -p;
+            }
+            lzAt(p, &perc[1]);
+        }
+    }
+    m_display.printAt(0, 22, m_fonts.tiny, perc);
     m_display.printAt(40, 22, m_fonts.tiny, "%");
+}
+
+void Screen::showPM()
+{
+    m_display.printAt(0, 2, m_fonts.tiny, "BOR:");
+    const auto bor = std::to_underlying(Flash::Interface::getBORLevel());
+    if (bor > 2)
+        m_display.printAt(40, 2, m_fonts.tiny, "Dis");
+    else
+        m_display.printAt(40, 2, m_fonts.tiny, FSLit("L") + FSNum<uint8_t>(bor + 1), 1, Display::NoBG);
+    m_display.printAt(0, 12, m_fonts.tiny, "PVD:");
+    switch (PWR::Interface::getPVDStatus())
+    {
+        case PWR::Interface::PVDStatus::Disabled:
+            m_display.printAt(40, 12, m_fonts.tiny, "Dis");
+            break;
+        case PWR::Interface::PVDStatus::Normal:
+            m_display.printAt(40, 12, m_fonts.tiny, "Nor");
+            break;
+        case PWR::Interface::PVDStatus::Undervoltage:
+            m_display.printAt(40, 12, m_fonts.tiny, "Und");
+            break;
+        default:
+            m_display.printAt(40, 12, m_fonts.tiny, "?");
+            break;
+    };
 }
 
 void Screen::showCommon()
@@ -194,6 +264,18 @@ void Screen::showADCFailure()
 
 void Screen::showDeadBat()
 {
+    const auto v = m_adcData.vbat();
+    FString<4> volt;
+    if (v > 999)
+        volt = " err";
+    else
+    {
+        volt[0] = '0' + (v / 100) % 10;
+        volt[1] = '.';
+        lzAt(v % 100, &volt[2]);
+    }
+    m_display.printAt(40, 12, m_fonts.tiny, volt);
+    m_display.printAt(80, 12, m_fonts.tiny, "V");
     m_display.rect(34, 7, 60, 18, Display::Color::White);
     m_display.bar(94, 13, 3, 6, Display::Color::White);
     m_display.line(49, 31, 79, 0, Display::Color::White);

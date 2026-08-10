@@ -6,7 +6,8 @@
 #include "keyboard.h"
 #include "rtc.h"
 #include "datetime.h"
-#include "utils.h" // lz
+#include "flash.h"
+#include "scb.h"
 
 #include <chrono>
 #include <utility> // std::unreachable
@@ -72,7 +73,7 @@ void Menu::run()
         {
             switch (e.action.value())
             {
-                case Action::Enter: runEdit(); return;
+                case Action::Enter: runImpl(); return;
                 case Action::Plus:  nextMenu(); show(); break;
                 case Action::Minus: prevMenu(); show(); break;
                 case Action::Exit:  return;
@@ -92,29 +93,37 @@ void Menu::show()
         case Edit::Time:
             m_display.printAt(15, 2, m_fonts.medium, "Set time");
             break;
+        case Edit::BOR:
+            m_display.printAt(15, 2, m_fonts.medium, "BOR");
+            break;
+        case Edit::Reset:
+            m_display.printAt(15, 2, m_fonts.medium, "Reset");
+            break;
     };
     m_display.update();
 }
 
 void Menu::nextMenu()
 {
-    m_edit = static_cast<Edit>((std::to_underlying(m_edit) + 1) % 2);
+    m_edit = static_cast<Edit>((std::to_underlying(m_edit) + 1) % 4);
 }
 
 void Menu::prevMenu()
 {
     if (m_edit == Edit::Date)
-        m_edit = Edit::Time;
+        m_edit = Edit::Reset;
     else
         m_edit = static_cast<Edit>(std::to_underlying(m_edit) - 1);
 }
 
-void Menu::runEdit()
+void Menu::runImpl()
 {
     switch (m_edit)
     {
         case Edit::Date: return runEditDate();
         case Edit::Time: return runEditTime();
+        case Edit::BOR: return runSetBOR();
+        case Edit::Reset: return runReset();
     };
 }
 
@@ -230,48 +239,97 @@ void Menu::runEditTime()
     RTC::Device::setTime(time);
 }
 
+void Menu::runSetBOR()
+{
+    showSetBOR();
+    while (true)
+    {
+        const auto e = m_keyboard.get();
+        using Action = Keyboard::Action;
+        if (e.action)
+        {
+            switch (e.action.value())
+            {
+                case Action::Enter:
+                    Flash::Interface::setBORLevel(Flash::Interface::BORLevel::L2);
+                    SCB::Interface::systemReset();
+                    break;
+                case Action::Exit:  return;
+                default: break;
+            };
+        }
+    }
+}
+
+void Menu::runReset()
+{
+    showReset();
+    while (true)
+    {
+        const auto e = m_keyboard.get();
+        using Action = Keyboard::Action;
+        if (e.action)
+        {
+            switch (e.action.value())
+            {
+                case Action::Enter:
+                    SCB::Interface::systemReset();
+                    break;
+                case Action::Exit:  return;
+                default: break;
+            };
+        }
+    }
+}
+
 void Menu::showEditDate(const Date& dt, DatePart part, bool showPart)
 {
     m_display.clear();
+    auto dts = toString(dt);
     if (!showPart)
     {
-        std::string v;
         if (part == DatePart::Year)
-            v += "    -";
-        else
-            v += std::to_string(dt.year) + "-";
-        if (part == DatePart::Month)
-            v += "  -";
-        else
-            v += lz(dt.month) + "-";
-        if (part != DatePart::Day)
-            v += lz(dt.day);
-        m_display.printAt(0, 0, m_fonts.big, v);
+            dts.fillAt<0, 4>(' ');
+        else if (part == DatePart::Month)
+            dts.fillAt<5, 2>(' ');
+        else if (part == DatePart::Day)
+            dts.fillAt<8, 2>(' ');
     }
-    else
-        m_display.printAt(0, 0, m_fonts.big, toString(dt));
+
+    m_display.printAt(0, 0, m_fonts.big, dts);
     m_display.update();
 }
 
 void Menu::showEditTime(const Time& tm, TimePart part, bool showPart)
 {
     m_display.clear();
+    auto ts = toStringFull(tm);
     if (!showPart)
     {
-        std::string v;
         if (part == TimePart::Hour)
-            v += "  :";
-        else
-            v += lz(tm.hour) + ":";
-        if (part == TimePart::Minute)
-            v += "  :";
-        else
-            v += lz(tm.minute) + ":";
-        if (part != TimePart::Second)
-            v += lz(tm.second);
-        m_display.printAt(0, 0, m_fonts.big, v);
+            ts.fillAt<0, 2>(' ');
+        else if (part == TimePart::Minute)
+            ts.fillAt<3, 2>(' ');
+        else if (part == TimePart::Second)
+            ts.fillAt<6, 2>(' ');
     }
-    else
-        m_display.printAt(0, 0, m_fonts.big, toString(tm, Time::Format::Full));
+
+    m_display.printAt(0, 0, m_fonts.big, ts);
+    m_display.update();
+}
+
+void Menu::showSetBOR()
+{
+    m_display.clear();
+    m_display.printAt(0, 0, m_fonts.medium, "Set BOR");
+    m_display.printAt(0, 20, m_fonts.tiny, "Yes?");
+    m_display.update();
+}
+
+void Menu::showReset()
+{
+    m_display.clear();
+    m_display.printAt(0, 0, m_fonts.medium, "Reset");
+    m_display.printAt(0, 20, m_fonts.tiny, "Yes?");
     m_display.update();
 }

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "timer.h"
+#include "fstring.h"
 
-#include <string>
 #include <chrono>
 #include <cstdint>
 
@@ -67,9 +67,17 @@ uint8_t toBCD(uint8_t v)
 }
 
 inline
-std::string lz(uint8_t v)
+FString<2> lz(uint8_t v)
 {
-    if (v < 10)
-        return "0" + std::to_string(v);
-    return std::to_string(v);
+    FString<2> res;
+    res[0] = '0' + (v / 10) % 10;
+    res[1] = '0' + v % 10;
+    return res;
+}
+
+inline
+void lzAt(uint8_t v, char* pos)
+{
+    pos[0] = '0' + (v / 10) % 10;
+    pos[1] = '0' + v % 10;
 }

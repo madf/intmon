@@ -28,7 +28,7 @@ OBJDUMP = $(HOST)-objdump
 STRIP = $(HOST)-strip
 SIZE = $(HOST)-size
 
-SOURCES = vector_table.S startup.S sbrk.c syscalls.c main.cpp screen.cpp menu.cpp keyboard.cpp display.cpp rtc.cpp bme280.cpp ina219.cpp i2cdev.cpp i2c.cpp pwr.cpp fonts.cpp timer.cpp systick.cpp datetime.cpp utils.cpp
+SOURCES = vector_table.S startup.S sbrk.c syscalls.c main.cpp screen.cpp menu.cpp keyboard.cpp display.cpp rtc.cpp bme280.cpp ina219.cpp i2cdev.cpp i2c.cpp flash.cpp pwr.cpp scb.cpp fonts.cpp timer.cpp systick.cpp datetime.cpp utils.cpp
 
 SANITIZED_SOURCES = $(patsubst %.S,,$(SOURCES))
 
@@ -38,7 +38,7 @@ PROG = firmware
 
 .PHONY: all clean check scan size flash
 
-all: $(PROG).bin test_clocks test_clocks.elf test_bits test_bits.elf
+all: $(PROG).bin test_clocks test_clocks.elf test_bits test_bits.elf test_fstring test_fsbuilder
 
 test_clocks: test_clocks.cpp clocks.h
 	g++ -std=c++23 -ggdb3 $(WARNING_FLAGS) test_clocks.cpp -o $@
@@ -51,6 +51,12 @@ test_bits: test_bits.cpp utils.h
 
 test_bits.elf: test_bits.cpp utils.h
 	$(CXX) $(CXXFLAGS) test_bits.cpp $(LDFLAGS) -o $@
+
+test_fstring: test_fstring.cpp fstring.h
+	g++ -std=c++23 -ggdb3 $(WARNING_FLAGS) test_fstring.cpp -o $@
+
+test_fsbuilder: test_fsbuilder.cpp fsbuilder.h fstring.h
+	g++ -std=c++23 -ggdb3 $(WARNING_FLAGS) test_fsbuilder.cpp -o $@
 
 $(PROG).elf: $(subst .S,.o,$(subst .c,.o,$(subst .cpp,.o,$(SOURCES))))
 	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) -o $@

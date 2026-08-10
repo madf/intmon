@@ -81,10 +81,15 @@ struct Pin
 
     static void enable()
     {
-        if constexpr (bank < 5)
-            RCC::Regs->AHB1ENR |= BIT(bank); // GPIOA - GPIOE
-        else
-            RCC::Regs->AHB1ENR |= BIT(7);    // Special case for GPIOH
+        switch (bank)
+        {
+            case 0: RCC::GPIOAEN::set(); break;
+            case 1: RCC::GPIOBEN::set(); break;
+            case 2: RCC::GPIOCEN::set(); break;
+            case 3: RCC::GPIODEN::set(); break;
+            case 4: RCC::GPIOEEN::set(); break;
+            case 5: RCC::GPIOHEN::set(); break;
+        };
     }
 
     static void setMode(Mode mode)

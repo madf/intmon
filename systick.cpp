@@ -16,7 +16,7 @@ void SysTick::init(uint32_t ticks)
     Regs->LOAD = ticks - 1;
     Regs->VAL = 0;
     setBit(&Regs->CTRL, BIT(0) | BIT(1) | BIT(2)); // Enable systick
-    setBit(&RCC::Regs->APB2ENR, BIT(14));          // Enable SYSCFG
+    RCC::SYSCFGEN::set(); // Enable SYSCFG
 }
 
 extern "C"

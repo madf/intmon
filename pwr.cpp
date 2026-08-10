@@ -2,6 +2,8 @@
 #include "rcc.h"
 #include "utils.h"
 
+#include <utility> // to_underlying
+
 using Interface = PWR::Interface;
 
 namespace
@@ -13,17 +15,17 @@ constexpr auto POWER_INTERFACE_CLOCK_ON = BIT(28);
 
 void Interface::enable()
 {
-    setBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON);
+    RCC::PWREN::set();
 }
 
 void Interface::disable()
 {
-    clearBit(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON);
+    RCC::PWREN::clear();
 }
 
 bool Interface::isEnabled()
 {
-    return isBitSet(&RCC::Regs->APB1ENR, POWER_INTERFACE_CLOCK_ON);
+    return RCC::PWREN::isSet();
 }
 
 bool Interface::disableBackupDomainWriteProtection()
@@ -37,4 +39,19 @@ bool Interface::disableBackupDomainWriteProtection()
 void Interface::setVoltageScalingMode(uint8_t m)
 {
     setBit(&Regs->CR, (m & 0x03) << 14);
+}
+
+void Interface::enablePVD(PVDLevel level)
+{
+    setBit(&Regs->CR, std::to_underlying(level) << 5);
+    setBit(&Regs->CR, BIT(4));
+}
+
+auto Interface::getPVDStatus() -> PVDStatus
+{
+    if (!isBitSet(&Regs->CR, BIT(4)))
+        return PVDStatus::Disabled;
+    if (isBitSet(&Regs->CSR, BIT(2)))
+        return PVDStatus::Undervoltage;
+    return PVDStatus::Normal;
 }

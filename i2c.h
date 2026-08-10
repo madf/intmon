@@ -136,7 +136,12 @@ class Port : public PortBase
         {
             SDA::enable();
             SCL::enable();
-            setBit(&RCC::Regs->APB1ENR, BIT(num + 20)); // Enable clock
+            switch (num) // Enable clock
+            {
+                case 1: RCC::I2C1EN::set(); break;
+                case 2: RCC::I2C2EN::set(); break;
+                case 3: RCC::I2C3EN::set(); break;
+            };
         }
 
         static void configureGPIO()

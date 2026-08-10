@@ -2,6 +2,8 @@
 
 #include "i2cdev.h"
 #include "fonts.h"
+#include "fstring.h"
+#include "fsbuilder.h"
 
 #include <string>
 #include <vector>
@@ -40,8 +42,36 @@ class Display
 
         void clear();
 
+        template <typename E>
+        bool printAt(uint8_t x, uint8_t y, const Font& font, const FSExpr<E>& text, size_t interCharSpace, Background bg)
+        {
+            auto pos = x;
+            for (auto it = text.iter(); it; it.next())
+            {
+                if (bg == Background::Yes && pos != x)
+                {
+                    if (!bar(pos + font.width(), y, interCharSpace, font.height(), Color::Black))
+                        return false;
+                }
+                if (!printCharAt(pos, y, font, *it))
+                    return false;
+                pos += font.width() + interCharSpace;
+            }
+            return true;
+        }
+
+        template <uint8_t S>
+        bool printAt(uint8_t x, uint8_t y, const Font& font, const FString<S>& text, size_t interCharSpace = 1)
+        {
+            return printAt(x, y, font, text.data(), text.size(), interCharSpace, Background::Yes);
+        }
+
         bool printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace = 1) { return printAt(x, y, font, text, interCharSpace, Background::Yes); }
-        bool printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace, Background bg);
+        bool printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace, Background bg)
+        {
+            return printAt(x, y, font, text.c_str(), text.length(), interCharSpace, bg);
+        }
+        bool printAt(uint8_t x, uint8_t y, const Font& font, const char* text, size_t textSize, size_t interCharSpace, Background bg);
         bool printCharAt(uint8_t x, uint8_t y, const Font& font, char c);
         bool bar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Color color);
         bool hline(uint8_t x, uint8_t y, uint8_t l, Color color);

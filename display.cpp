@@ -52,17 +52,17 @@ void Display::clear()
             v = 0;
 }
 
-bool Display::printAt(uint8_t x, uint8_t y, const Font& font, const std::string& text, size_t interCharSpace, Background bg)
+bool Display::printAt(uint8_t x, uint8_t y, const Font& font, const char* text, size_t textSize, size_t interCharSpace, Background bg)
 {
     auto pos = x;
-    for (auto c : text)
+    for (size_t i = 0; i < textSize; ++i)
     {
         if (bg == Background::Yes && pos != x)
         {
             if (!bar(pos + font.width(), y, interCharSpace, font.height(), Color::Black))
                 return false;
         }
-        if (!printCharAt(pos, y, font, c))
+        if (!printCharAt(pos, y, font, text[i]))
             return false;
         pos += font.width() + interCharSpace;
     }
@@ -117,6 +117,8 @@ bool Display::bar(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Color color)
 
 bool Display::hline(uint8_t x, uint8_t y, uint8_t l, Color color)
 {
+    if (y > 31)
+        return false;
     auto& p = m_pages[y / 8];
     const auto offset = y % 8;
     for (uint8_t i = 0; i < l; ++i)
@@ -157,7 +159,7 @@ bool Display::rect(uint8_t x, uint8_t y, uint8_t l, uint8_t h, Color color)
 
 bool Display::point(uint8_t x, uint8_t y, Color color)
 {
-    if (x > 127 || y > 32)
+    if (x > 127 || y > 31)
         return false;
     auto& p = m_pages[y / 8];
     const auto offset = y % 8;

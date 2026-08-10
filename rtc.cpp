@@ -33,7 +33,6 @@ constexpr uint32_t RTC_INITIALIZATION_MARK = 0xDEADBEEF;
 
 bool Device::init(const Config& config)
 {
-    auto* regs = Regs;
     setClockSource(config.clockSource);
     enable();
 
@@ -70,7 +69,7 @@ bool Device::resync()
 
 void Device::enable()
 {
-    setBit(&RCC::Regs->BDCR, BIT(15));
+    RCC::RTCEN::set();
 }
 
 void Device::setClockSource(ClockSource cs)
@@ -84,11 +83,10 @@ void Device::setClockSource(ClockSource cs)
     // Restore register state
     //RCC::Regs->BDCR = old;
     // If LSE was enabled, wait its activation
-    if (isBitSet(&RCC::Regs->BDCR, BIT(0))) // If LSE was enabled
-        waitBitOn(&RCC::Regs->BDCR, BIT(1)); // Wait LSE
+    if (RCC::LSEON::isSet()) // If LSE was enabled
+        RCC::LSERDY::waitOn(); // Wait LSE
 
-    clearBit(&RCC::Regs->BDCR, RTC_CLOCK_SELECTION_MASK);
-    setBit(&RCC::Regs->BDCR, std::to_underlying(cs) << 8);
+    RCC::RTCSEL::write(std::to_underlying(cs));
 }
 
 void Device::setFormat(Format f)

@@ -91,8 +91,8 @@ void init(PRE prescaler)
     setBit(&Common::Regs->CCR, std::to_underlying(prescaler) << 16);
 
     // Enable ADC clock
-    setBit(&RCC::Regs->APB2ENR, BIT(8));
-    std::ignore = isBitSet(&RCC::Regs->APB2ENR, BIT(8));
+    RCC::ADC1EN::set();
+    std::ignore = RCC::ADC1EN::isSet();
 }
 
 inline

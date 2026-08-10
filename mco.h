@@ -15,23 +15,12 @@ struct Port
 };
 
 enum class PRE : uint8_t {
-    DIV1 = 0,
-    DIV2 = 4,
-    DIV3 = 5,
-    DIV4 = 6,
-    DIV5 = 7
+    DIV1 = 0x00,
+    DIV2 = 0x04,
+    DIV3 = 0x05,
+    DIV4 = 0x06,
+    DIV5 = 0x07
 };
-
-inline
-uint8_t PREBits(PRE d)
-{
-    switch (d)
-    {
-        case PRE::DIV1: return 0x00;
-        default:   return 0x04 + std::to_underlying(d);
-    };
-    return 0x00; // Just in case
-}
 
 template <>
 struct Port<1>
@@ -55,11 +44,8 @@ struct Port<1>
         Pin::setSpeed(GPIO::Speed::VERY_HIGH);
         Pin::setAF(0);
 
-        clearBit(&RCC::Regs->CFGR, 0x03 << 21);
-        setBit(&RCC::Regs->CFGR, std::to_underlying(s) << 21);
-
-        clearBit(&RCC::Regs->CFGR, 0x03 << 24);
-        setBit(&RCC::Regs->CFGR, PREBits(div) << 24);
+        RCC::MCO1::write(std::to_underlying(s));
+        RCC::MCO1PRE::write(std::to_underlying(div));
     }
 };
 
@@ -85,11 +71,8 @@ struct Port<2>
         Pin::setSpeed(GPIO::Speed::VERY_HIGH);
         Pin::setAF(0);
 
-        clearBit(&RCC::Regs->CFGR, 0x03 << 30);
-        setBit(&RCC::Regs->CFGR, std::to_underlying(s) << 30);
-
-        clearBit(&RCC::Regs->CFGR, 0x03 << 27);
-        setBit(&RCC::Regs->CFGR, PREBits(div) << 27);
+        RCC::MCO2::write(std::to_underlying(s));
+        RCC::MCO2PRE::write(std::to_underlying(div));
     }
 };
 
