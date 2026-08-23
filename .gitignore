@@ -6,3 +6,5 @@
 *.bin
 test_bits
 test_clocks
+test_fsbuilder
+test_fstring
