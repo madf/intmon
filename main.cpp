@@ -98,7 +98,7 @@ int main()
 {
     LSE::enable();
     SysClock::enable();
-    SysTick::init(SysClock::AHBFreq * 1000); // MHz to ms
+    SysTick::Interface::init(SysClock::AHBFreq * 1000); // MHz to ms
     PWR::Interface::enablePVD(PWR::Interface::PVDLevel::L29);
 
     MCO1::enable(MCO1::Source::PLL, MCO::PRE::DIV5);

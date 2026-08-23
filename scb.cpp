@@ -1,32 +1,19 @@
 #include "scb.h"
 
+#include "asm.h"
+
 using Interface = SCB::Interface;
-
-namespace
-{
-
-void __NOP()
-{
-    __asm volatile ("nop");
-}
-
-void __DSB()
-{
-    __asm volatile ("dsb 0xF":::"memory");
-}
-
-}
 
 void Interface::systemReset()
 {
-    __DSB();
+    ASM_DSB();
     groupWrite<VECTKEY, PRIGROUP, SYSRESETREQ>(0x05FAUL, 0x07UL, true);
-    __DSB();
+    ASM_DSB();
     while (true)
-        __NOP();
+        ASM_NOP();
 }
 
 void Interface::sleep()
 {
-    __asm volatile ("wfi");
+    ASM_WFI();
 }

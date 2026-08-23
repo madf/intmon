@@ -228,7 +228,7 @@ class Device
         bool start()
         {
             setBit(&m_regs->CR2, BIT(0));
-            SysTick::delayUS(STAB_DELAY.count());
+            SysTick::Interface::delayUS(STAB_DELAY.count());
             if (!isBitSet(&m_regs->CR2, BIT(0)))
                 return false;
             return true;
