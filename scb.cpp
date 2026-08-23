@@ -20,7 +20,7 @@ void __DSB()
 void Interface::systemReset()
 {
     __DSB();
-    SCB::Regs->AIRCR = (0x5FAUL << 16) | (SCB::Regs->AIRCR & (0x7UL << 8)) | 0x01UL << 2;
+    groupWrite<VECTKEY, PRIGROUP, SYSRESETREQ>(0x05FAUL, 0x07UL, true);
     __DSB();
     while (true)
         __NOP();

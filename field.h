@@ -3,30 +3,40 @@
 #include "timer.h"
 #include "minfo.h"
 
+#include <tuple>
 #include <type_traits>
 #include <cstdint>
 
-template <auto RegPtr, uint8_t Offset, uint8_t W>
-struct FieldBase
+template <auto RegPtr>
+struct Reg
 {
-    static constexpr auto Width = W;
     using Info = MemberInfo<decltype(RegPtr)>;
     using Subsystem = typename Info::Class;
-    static_assert(std::is_same_v<typename Info::Type, uint32_t>, "the register must be of the uint32_t type");
+    static_assert(std::is_same_v<typename Info::Type, uint32_t>, "The register must be of the uint32_t type");
+    static auto& reg() { return Subsystem::get()->*RegPtr; }
+    static void regWrite(uint32_t v, uint32_t mask) { reg() = (reg() & ~mask) | (v & mask); }
+    static uint32_t regRead(uint32_t mask) { return reg() & mask; }
+};
+
+template <auto RP, uint8_t Off, uint8_t W>
+struct FieldBase : Reg<RP>
+{
+    using Base = Reg<RP>;
+    static constexpr auto RegPtr = RP;
+    static constexpr auto Offset = Off;
+    static constexpr auto Width = W;
     static_assert(Offset + Width <= 32, "field doesn't fit in a 32-bit register");
     static constexpr uint8_t End = Offset + Width;
     static constexpr uint32_t Mask = ((1u << Width) - 1u) << Offset;
 
-    static auto& reg() { return Subsystem::get()->*RegPtr; }
-
     static uint32_t read()
     {
-        return (reg() & Mask) >> Offset;
+        return Base::regRead(Mask) >> Offset;
     }
 
     static void write(uint32_t value)
     {
-        reg() = (reg() & ~Mask) | ((value << Offset) & Mask);
+        Base::regWrite(value << Offset, Mask);
     }
 };
 
@@ -37,6 +47,8 @@ template <auto RegPtr>
 struct Field<RegPtr, 0, 32> : FieldBase<RegPtr, 0, 32>
 {
     using Base = FieldBase<RegPtr, 0, 32>;
+    using Base::Mask;
+    using Base::Offset;
     static uint32_t read()
     {
         return Base::reg();
@@ -48,10 +60,13 @@ struct Field<RegPtr, 0, 32> : FieldBase<RegPtr, 0, 32>
     }
 };
 
-template <auto RegPtr, uint8_t Offset>
-struct Field<RegPtr, Offset, 1> : private FieldBase<RegPtr, Offset, 1>
+template <auto RP, uint8_t Off>
+struct Field<RP, Off, 1> : private FieldBase<RP, Off, 1>
 {
-    using Base = FieldBase<RegPtr, Offset, 1>;
+    using Base = FieldBase<RP, Off, 1>;
+    using Base::RegPtr;
+    using Base::Mask;
+    using Base::Offset;
     using Base::Width;
     using Base::End;
     static bool isSet() { return Base::read() > 0; }
@@ -114,3 +129,55 @@ struct Reserved
     static_assert(Offset + Width <= 32, "field doesn't fit in a 32-bit register");
     static constexpr uint8_t End = Offset + Width;
 };
+
+template <typename T, typename... Ts>
+inline constexpr bool sameRegisterFieldsV = ((T::RegPtr == Ts::RegPtr) && ...);
+
+template <typename T, typename... Ts>
+struct GetCommonReg
+{
+    static_assert(sameRegisterFieldsV<T, Ts...>, "The fields map to different registers.");
+    using Type = Reg<T::RegPtr>;
+};
+
+template <typename... Ts>
+using GetCommonRegT = GetCommonReg<Ts...>::Type;
+
+template <typename T, typename VT>
+inline
+constexpr uint32_t fieldBits(VT v)
+{
+    if constexpr (isFlagFieldV<T>)
+    {
+        static_assert(std::is_same_v<VT, bool>, "Flag fields must have boolean value.");
+        return (v ? 1UL : 0UL) << T::Offset;
+    }
+    else if constexpr (isFieldV<T>)
+    {
+        static_assert(std::is_unsigned_v<VT>, "Numeric fields must have unsigned numeric value.");
+        return (static_cast<uint32_t>(v) << T::Offset) & T::Mask;
+    }
+    else
+    {
+        static_assert(false, "This function must be used with field type parameter.");
+    }
+}
+
+template <typename... Ts, typename... VTs>
+inline
+constexpr std::tuple<uint32_t, uint32_t> composeFieldBits(VTs... vs)
+{
+    static_assert((isFieldV<Ts> && ...), "Field composition must happen on register fields.");
+    static_assert(sameRegisterFieldsV<Ts...>, "Field composition must happen on fields of the same register.");
+    constexpr uint32_t mask = (Ts::Mask | ...);
+    return {(fieldBits<Ts>(vs) | ...) & mask, mask};
+}
+
+template <typename... Ts, typename... VTs>
+inline
+void groupWrite(VTs... vs)
+{
+    static_assert(sameRegisterFieldsV<Ts...>, "Field composition must happen on fields of the same register.");
+    using R = GetCommonRegT<Ts...>;
+    std::apply(R::regWrite, composeFieldBits<Ts...>(vs...));
+}
