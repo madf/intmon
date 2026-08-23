@@ -72,7 +72,7 @@ clean:
 	$(RM) *.o *.d $(PROG).*
 
 check:
-	cppcheck --enable=all --std=c++03 --language=c++ --suppress=*:picojson.h $(DEFS) -q *.h *.cpp *.c
+	cppcheck --enable=all --std=c++23 --language=c++ --disable=missingInclude $(DEFS) -q *.h *.cpp *.c
 
 scan:
 	scan-build -analyze-headers --view make $(MAKEOPTS)
