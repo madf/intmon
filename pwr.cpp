@@ -30,28 +30,29 @@ bool Interface::isEnabled()
 
 bool Interface::disableBackupDomainWriteProtection()
 {
-    setBit(&Regs->CR, BIT(8)); // Disable write protection for backup domain
-    if (!waitBitOn(&Regs->CR, BIT(8), std::chrono::milliseconds(2)))
+    DBP::set(); // Disable write protection for backup domain
+    if (!DBP::waitOn(std::chrono::milliseconds(2))) {
         return false;
+    }
     return true;
 }
 
 void Interface::setVoltageScalingMode(uint8_t m)
 {
-    setBit(&Regs->CR, (m & 0x03) << 14);
+    VOS::write(m);
 }
 
 void Interface::enablePVD(PVDLevel level)
 {
-    setBit(&Regs->CR, std::to_underlying(level) << 5);
-    setBit(&Regs->CR, BIT(4));
+    PLS::write(std::to_underlying(level));
+    PVDE::set();
 }
 
 auto Interface::getPVDStatus() -> PVDStatus
 {
-    if (!isBitSet(&Regs->CR, BIT(4)))
+    if (!PVDE::isSet())
         return PVDStatus::Disabled;
-    if (isBitSet(&Regs->CSR, BIT(2)))
+    if (PVDO::isSet())
         return PVDStatus::Undervoltage;
     return PVDStatus::Normal;
 }
